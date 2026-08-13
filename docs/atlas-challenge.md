@@ -9,7 +9,24 @@ retrospective evaluation.
 
 The primary scientific source is the VITA paper, “De novo design of
 metalloproteases for targeted amyloid-β cleavage,” committed at
-`references/vita_abeta_metalloprotease.pdf`.
+`references/vita_abeta_metalloprotease.pdf`. The publisher Supplementary
+Information, RCSB 23WN coordinates, and EMDB EMD-69322 metadata were recovered
+from their official public repositories on 2026-08-13.
+
+## Recovered asset manifest
+
+| Asset | Local file | Official source | Scientific use |
+| --- | --- | --- | --- |
+| VITA Supplementary Information | `references/vita_abeta_metalloprotease_supplementary.pdf` | VITA publisher article page | Assay constructs, supplementary figures, and cryo-EM validation metadata |
+| PDB 23WN | `references/structures/23WN.cif` | RCSB PDB | Inactive DP622 E96Q/Aβ42 structural reference only |
+| EMD-69322 metadata | `references/structures/EMD-69322_metadata.json` | EMDB API | Deposition, specimen, reconstruction, and map provenance; no map voxels |
+| Sequence registry | `data/atlas_challenge/sequences.yaml` | RCSB/EMDB deposition plus exhausted official-source search | Exact deposited E96Q construct and Aβ42 sequence; explicit unavailability of active/optimized enzymes |
+| Hidden labels | `data/atlas_challenge/hidden_labels.yaml` | VITA article Figures 3 and 5 and Supplementary Figures S5, S10, S20, and S21 | Post-lock kinetics, cleavage, selectivity, and mutant outcomes only |
+
+Checksums, retrieval dates, direct URLs, the authors' repository revision, and
+provenance notes are recorded in `data/atlas_challenge/manifest.yaml`. The
+primary EMDB map was intentionally not downloaded because the current
+implementation uses metadata and the RCSB atomic coordinates, not map voxels.
 
 ## Scientific contract
 
@@ -18,6 +35,8 @@ metalloproteases for targeted amyloid-β cleavage,” committed at
 - DP622-S2 catalytic residues: Y91, E96, D126, H172
 - PDB `23WN` / EMDB `EMD-69322` is an inactive DP622 E96Q pre-catalytic
   reference. Its distances establish a geometry baseline, not catalytic activity.
+- The deposited entity-1 sequence is a 1,513-residue E96Q fusion construct;
+  chain A residues 15–239 are modeled. It is not the active DP622-S2 seed.
 - Substrate recognition and selectivity risk are independent evidence dimensions.
 - No synthetic `kcat`, `Km`, or `kcat/Km` values are permitted.
 - A recommendation and its Decision Trace are locked before hidden outcomes are
@@ -46,9 +65,10 @@ record is labeled `synthetic_demo`; none is presented as biological model output
 or measured evidence.
 
 After lock, Atlas can reveal paper-derived retrospective controls and report
-alignment. Because the exact sequences needed to recreate published optimized
-constructs were not present in the committed assets, v1 records non-recovery as a
-negative result rather than inferring sequences.
+alignment. Exact active DP622-S2, OP609-S2, and OP669-S2 enzyme sequences were
+not found in the article, Supplementary Information, 23WN/EMD-69322 deposits, or
+the authors' named repository. Atlas records that official-source search as a
+negative result rather than inferring or reconstructing sequences.
 
 ## Visible-information manifest
 
@@ -59,11 +79,25 @@ identifiers. It contains no published post-seed performance or ranking.
 
 ## Hidden-information manifest
 
-Published seed/control catalytic efficiencies, cleavage outcomes, selectivity
-outcomes, optimized-variant identities and performance, mutant outcomes,
+Published seed/control `kcat`, `Km`, catalytic efficiencies, cleavage outcomes,
+selectivity outcomes, optimized-variant identities and performance, mutant outcomes,
 retrospective rankings, and post-seed optimization conclusions are post-lock only.
 The hidden repository verifies a durable lock file and the canonical pre-lock
-hash-chained ledger before returning them.
+hash-chained ledger before reading `hidden_labels.yaml`. They remain absent from
+AtlasState, candidate evidence, adapters, ranking, Decision Trace, and the
+Scientific Notebook.
+
+## What must not be inferred
+
+- Do not back-mutate the deposited E96Q fusion construct and call the result the
+  active DP622-S2 sequence.
+- Do not reconstruct OP609-S2 or OP669-S2 from figures, prose, design examples,
+  or sequence differences that are not explicitly deposited.
+- Do not interpret the resolved Aβ42 residues 34–41 as a fully observed Aβ42
+  structure; the deposition contains the full 42-residue entity sequence but
+  models only that eight-residue segment.
+- Do not infer unreported kinetics, raw assay measurements, selectivity against
+  untested substrates, or catalytic activity from structural geometry.
 
 ## Autonomous search methodology
 

@@ -22,6 +22,11 @@ validation. The `demo_cached` profile uses deterministic synthetic demo evidence
 to exercise orchestration and reporting; it does not fabricate kinetic constants
 or represent measured biological results.
 
+Official-source recovery supplies the VITA Supplementary Information, RCSB 23WN
+coordinates, and EMD-69322 metadata. The structure is the inactive DP622 E96Q
+fusion construct; exact active DP622-S2 and optimized-control sequences remain
+unavailable and are never inferred.
+
 ### Canonical configuration
 
 | Field | Value |

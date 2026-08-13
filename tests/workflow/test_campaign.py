@@ -3,6 +3,7 @@ import json
 from atlas.domain.enums import CampaignStatus, EventKind
 from atlas.domain.models import CampaignConfig
 from atlas.ledger import ScientificLedger
+from atlas.rendering import render_scientific_notebook
 from atlas.workflow.graph import build_campaign_graph, run_campaign
 
 
@@ -32,8 +33,9 @@ def test_prelock_state_and_artifacts_do_not_contain_hidden_outcomes(tmp_path) ->
         [event.model_dump(mode="json") for event in run.events[:lock_index]],
         ensure_ascii=False,
     )
-    for forbidden in ("OP609", "OP669", "3045.14", "452.49"):
+    for forbidden in ("OP609", "OP669", "3045.14", "452.49", "0.02395", "0.00172"):
         assert forbidden not in prelock
+        assert forbidden not in render_scientific_notebook(run.events)
     assert EventKind.RETROSPECTIVE_LABELS_REVEALED.value not in run.decision_trace.stages
     assert run.decision_trace.event_ids[-1] == run.events[lock_index - 1].event_id
 

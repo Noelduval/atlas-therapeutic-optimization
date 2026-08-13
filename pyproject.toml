@@ -7,6 +7,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
   "langgraph>=0.6,<2",
   "pydantic>=2.11,<3",
+  "pyyaml>=6.0,<7",
   "rich>=14,<15",
   "streamlit>=1.48,<2",
   "typer>=0.16,<1",

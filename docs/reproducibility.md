@@ -52,6 +52,29 @@ uncommitted model asset is required for `demo_cached`.
 ## Source provenance
 
 The locked requirements are in `docs/PRD.md`. The scientific reference is
-`references/vita_abeta_metalloprotease.pdf`. The source set lacks exact DP622 and
-optimized-control sequences and the paper’s supplementary design assets; Atlas
-marks those inputs unavailable and does not infer them.
+`references/vita_abeta_metalloprotease.pdf`. Recovered scientific assets are:
+
+- `references/vita_abeta_metalloprotease_supplementary.pdf`, downloaded from the
+  VITA publisher's supplementary-information link;
+- `references/structures/23WN.cif`, downloaded from RCSB;
+- `references/structures/EMD-69322_metadata.json`, downloaded from the EMDB API;
+- `data/atlas_challenge/manifest.yaml`, the retrieval/checksum/provenance record;
+- `data/atlas_challenge/sequences.yaml`, the exact deposition sequences and
+  explicit unavailable records; and
+- `data/atlas_challenge/hidden_labels.yaml`, loaded only after lock verification.
+
+Verify local asset integrity with:
+
+```bash
+shasum -a 256 \
+  references/vita_abeta_metalloprotease.pdf \
+  references/vita_abeta_metalloprotease_supplementary.pdf \
+  references/structures/23WN.cif \
+  references/structures/EMD-69322_metadata.json
+```
+
+Compare the output with `data/atlas_challenge/manifest.yaml`. The recovered 23WN
+sequence is the inactive E96Q fusion construct. Exact active DP622-S2, OP609-S2,
+and OP669-S2 sequences remain unavailable after the official-source search and
+must not be inferred. The EMDB map itself was not downloaded because no current
+`demo_cached` path consumes map voxels.

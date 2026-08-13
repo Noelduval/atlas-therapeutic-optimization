@@ -1,0 +1,72 @@
+schema_version: 1
+checksum_algorithm: sha256_over_uppercase_unspaced_amino_acid_sequence
+sequences:
+  - candidate_name: DP622-S2
+    availability: UNAVAILABLE
+    sequence: null
+    source: Official VITA article, Supplementary Information, RCSB 23WN, EMDB EMD-69322, and authors' repository searched on 2026-08-13.
+    chain_source_mapping: null
+    checksum: null
+    evidence_class: unavailable_after_official_source_search
+    active_seed: true
+    active_site_variant: E96
+    notes: Exact active DP622-S2 enzyme sequence was not found. The E96Q deposited construct below must not be substituted or back-mutated to infer it.
+
+  - candidate_name: DP622 E96Q deposited construct
+    availability: AVAILABLE
+    sequence: >-
+      MGHHHHHHHHSSGLEVLFQGPGGTRNLELARAADVTVTVADTPEEMYEAAKVAVETVRELAAGDPRRDEYVALAERLFRTGIERGGIAGIAIYADGRRRVFVVAPSDASDEALIYALAHQLAHLIIAEDLERRGLPLSAVPPGVVEGLADVFGATAYAAYLELKGEKVTLEKWREMQLRLAEETERIGREAGLEAHVEGGRIAAEIARRTNEEEAQKLIEEVKPLVEFILGLLRVARTAHRAVPGGRATVTLKPDGLAEVELKGADPKNPAIAIIKVAAMLQGLLLRFPEDEEVHKLVVENLRILIENLEKLVEKAEKDLNTNPEFIRQLAAALELVAEVLRTILRFGKEELKEEAKELGRLLGEVALKLLELLKKLLEKAEKEGNKEIHELIAEAIAALIGVADALRRLGLEEEAEELKKKIAELVNKLVESYPEQLFKLIEKTLDHPETLAEVLSQVKLTKELAKELFEKALEAIKEKNYKLAYLYLTAAATNPEMLPKIKELLEKEEDIEVIKVIAKAAITAANNENLTKEQAELLAELLLLALEKLIPDEELLELIIKILKALAKLFKKLDPKTAIEYLKKVTELVLELLEREKDPERIIKLGEALAKLLEGVGENAAKTKDKELVKTAIELAKEVIEKILKRLLEDKSLSPEEVAALVEAIVKIAEGTIKALILAGLLEEALEFLKEVLEKIVETIEQLPDELRPEAIAALLESLGESLVEIAKTALENLPEEEAEKFLKEVLRLILEFLEKLFEIALPLADDKEAVEKIMKGLAKLVGGLLVVLLLVPGVEEEVRRIIRLITEFIEEVFRRMVEKAETEEEREEVREFIAELLLEFLKIIGEKVVKGTEEAVRKGLLKPEGLRAALRLLGELVEALLRLAAELLPEELAREVAREMLEIAFETLAEVLKVVSPDPLAAVEAAEAAFEVLLRLIRVAVELHGLDEEELVELAVRKLREARREIEKESREERELERRLLEIRAEIDPEEVAKELEKEIEELKKNIEEALKKLEEFFEKVQERIKELPERERELVEKLATAFLELMLTVIRNSVERLLELALLLAKVLVKLGKYEEAFEVIKEAVRLAKEVVRKLEELAERSESEELREHALETAAEILARAIKALAEAIKAFADKDPEIAEELFELMLELLEELERLVRRAVERGFPRVVRHLGPAVKALAEAALHHPNREEALERAVERLRRLLEELERLAERVEREEEDPVRRLALLAALAEAQVAVLEALARLSEHLPEERRKEVEEWLKKRVLELLERLLELLREAEELYRRTGDERLREIARELRRILERLAEVTEGSLELAEAAWELLAPHPEAFGARAEVVVNLAKLDPERGLRALEELEKQVSTEEQREALAYALGRIVGYVDEERAKELIDRAIELGQYDAFAEGLAEALLEAPEERIPKLLKAIEEFLKKLEEELKEIEKKINEPEFQKSKDEEELEKIKKKIESIKRAAEKILKAALKKILEEPELALKVAELALKVIAKANKILEKL
+    source: https://www.ebi.ac.uk/emdb/api/entry/EMD-69322
+    chain_source_mapping:
+      pdb_id: 23WN
+      entity_id: 1
+      label_asym_id: A
+      auth_chain_id: A
+      deposited_sequence_length: 1513
+      observed_label_seq_range: 15-239
+      observed_residue_count: 225
+    checksum: sha256:c8d23c9e5ee96e31d7e10b400f156d4f6d21ace84d8ff3bb9c3e5b8b25b7343b
+    evidence_class: official_structural_deposition_sequence
+    active_seed: false
+    active_site_variant: E96Q
+    notes: Exact deposited fusion-construct sequence for the inactive pre-catalytic cryo-EM specimen. It is not the active DP622-S2 sequence and must not be back-mutated or treated as an active seed asset.
+
+  - candidate_name: OP609-S2
+    availability: UNAVAILABLE
+    sequence: null
+    source: Official VITA article, Supplementary Information, deposited structure files, and authors' repository searched on 2026-08-13.
+    chain_source_mapping: null
+    checksum: null
+    evidence_class: unavailable_after_official_source_search
+    active_seed: false
+    active_site_variant: unknown
+    notes: Exact optimized-enzyme sequence was not found and must not be reconstructed from prose, figures, or the DP622 E96Q structure.
+
+  - candidate_name: OP669-S2
+    availability: UNAVAILABLE
+    sequence: null
+    source: Official VITA article, Supplementary Information, deposited structure files, and authors' repository searched on 2026-08-13.
+    chain_source_mapping: null
+    checksum: null
+    evidence_class: unavailable_after_official_source_search
+    active_seed: false
+    active_site_variant: unknown
+    notes: Exact optimized-enzyme sequence was not found and must not be reconstructed from prose, figures, or the DP622 E96Q structure.
+
+  - candidate_name: Aβ42 target context
+    availability: AVAILABLE
+    sequence: DAEFRHDSGYEVHHQKLVFFAEDVGSNKGAIIGLMVGGVVIA
+    source: https://www.rcsb.org/structure/23WN
+    chain_source_mapping:
+      pdb_id: 23WN
+      entity_id: 2
+      label_asym_id: B
+      auth_chain_id: B
+      deposited_sequence_length: 42
+      observed_label_seq_range: 34-41
+      observed_residue_count: 8
+    checksum: sha256:df68e944e2c65b97c437428dc732c1ef0fd36aa1fa4dce818d90a6b7b54369c9
+    evidence_class: official_structural_deposition_sequence
+    active_seed: false
+    active_site_variant: not_applicable
+    notes: Target peptide sequence, not an enzyme candidate. Only residues 34-41 are modeled in 23WN coordinates.

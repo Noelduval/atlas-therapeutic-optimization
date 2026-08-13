@@ -1,0 +1,59 @@
+schema_version: 1
+access_class: POST_LOCK_ONLY
+source:
+  title: De novo design of metalloproteases for targeted amyloid-β cleavage
+  doi: 10.15302/vita.2026.07.0055
+  article_url: https://www.vita-journal.com/vita/EN/10.15302/vita.2026.07.0055
+  supplementary_asset: references/vita_abeta_metalloprotease_supplementary.pdf
+evidence_class: published_measured
+seed_control:
+  identity: DP622-S2
+  exact_sequence: null
+  sequence_availability: UNAVAILABLE
+  kcat_s_inverse: 0.00191
+  km_micromolar: 5.87
+  catalytic_efficiency_m_inverse_s: 325.26
+  source_location: Article Figure 3c and Results
+  cleavage_findings:
+    - Complete S2 fusion-substrate degradation within four hours.
+    - Cleaved full-length Aβ42 at the intended S2 site.
+  selectivity_findings:
+    - Weak cross-reactivity toward the DP221-S3 substrate was reported.
+controls:
+  - identity: OP609-S2
+    exact_sequence: null
+    sequence_availability: UNAVAILABLE
+    kcat_s_inverse: 0.02395
+    km_micromolar: 7.86
+    catalytic_efficiency_m_inverse_s: 3045.14
+    source_location: Article Figure 5c-d; Supplementary Figure S20
+    cleavage_findings:
+      - Cleaved the S2 fusion substrate and full-length Aβ42 at the intended site.
+    selectivity_findings:
+      - Exclusively cleaved the S2 fusion substrate among the three tested fusion substrates.
+  - identity: OP669-S2
+    exact_sequence: null
+    sequence_availability: UNAVAILABLE
+    kcat_s_inverse: 0.00172
+    km_micromolar: 3.80
+    catalytic_efficiency_m_inverse_s: 452.49
+    source_location: Article Figure 5c-d; Supplementary Figure S21
+    cleavage_findings:
+      - Cleaved the S2 and S3 fusion substrates at the S2 cleavage site.
+      - Produced more complete Aβ42 degradation into intended fragments than OP609-S2.
+    selectivity_findings:
+      - Cross-reactivity toward the S3 fusion substrate was reported.
+mutant_controls:
+  - identity: DP622-S2 Y91F
+    finding: Enhanced measured catalytic efficiency and retained the intended Aβ42 cleavage site.
+    source_location: Article Results; Supplementary Figures S5a and S10a
+  - identity: DP622-S2 D126A
+    finding: Enhanced measured catalytic efficiency.
+    source_location: Article Results; Supplementary Figure S5b
+  - identity: DP622-S2 H172A
+    finding: Decreased measured catalytic efficiency.
+    source_location: Article Results; Supplementary Figure S5c
+  - identity: DP622-S2 Y91F/D126A
+    finding: Decreased measured catalytic efficiency.
+    source_location: Article Results; Supplementary Figure S5d
+retrospective_disclosure: Retrospective comparison only; possible biological-model training-data contamination cannot be excluded.

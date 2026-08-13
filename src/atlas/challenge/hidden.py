@@ -8,6 +8,7 @@ from typing import Literal
 from atlas.domain.enums import Availability, EventKind, Provenance
 from atlas.domain.models import AtlasModel, DecisionTrace, RecommendationLock
 from atlas.ledger import ScientificLedger, ledger_snapshot_digest
+from atlas.challenge.assets import load_hidden_label_asset
 
 
 class HiddenControl(AtlasModel):
@@ -15,14 +16,20 @@ class HiddenControl(AtlasModel):
     provenance: Literal[Provenance.PUBLISHED_MEASURED] = Provenance.PUBLISHED_MEASURED
     exact_sequence: None = None
     sequence_availability: Literal[Availability.UNAVAILABLE] = Availability.UNAVAILABLE
+    published_kcat_s_inverse: float
+    published_km_micromolar: float
     published_efficiency_m_inverse_s: float
     published_finding: str
+    published_cleavage_findings: tuple[str, ...]
+    published_selectivity_findings: tuple[str, ...]
+    source_location: str
 
 
 class HiddenMutantOutcome(AtlasModel):
     identity: str
     provenance: Literal[Provenance.PUBLISHED_MEASURED] = Provenance.PUBLISHED_MEASURED
     published_finding: str
+    source_location: str
 
 
 class HiddenOutcomeBundle(AtlasModel):
@@ -108,54 +115,35 @@ class HiddenLabelRepository:
         ):
             raise ValueError("The persisted recommendation event does not match the lock")
 
+        hidden = load_hidden_label_asset()
+
+        def control_from(record: dict) -> HiddenControl:
+            return HiddenControl(
+                identity=record["identity"],
+                published_kcat_s_inverse=record["kcat_s_inverse"],
+                published_km_micromolar=record["km_micromolar"],
+                published_efficiency_m_inverse_s=record[
+                    "catalytic_efficiency_m_inverse_s"
+                ],
+                published_finding=" ".join(
+                    (*record["cleavage_findings"], *record["selectivity_findings"])
+                ),
+                published_cleavage_findings=tuple(record["cleavage_findings"]),
+                published_selectivity_findings=tuple(record["selectivity_findings"]),
+                source_location=record["source_location"],
+            )
+
         return HiddenOutcomeBundle(
             revealed_after_lock_id=lock.lock_id,
-            seed_control=HiddenControl(
-                identity="DP622-S2",
-                published_efficiency_m_inverse_s=325.26,
-                published_finding=(
-                    "Published seed achieved complete substrate degradation within four hours, "
-                    "with measured catalytic efficiency used only for post-lock comparison."
-                ),
-            ),
-            controls=(
-                HiddenControl(
-                    identity="OP609-S2",
-                    published_efficiency_m_inverse_s=3045.14,
-                    published_finding=(
-                        "Published structure-guided variant with higher measured catalytic "
-                        "efficiency than the DP622-S2 seed and S2 substrate selectivity."
-                    ),
-                ),
-                HiddenControl(
-                    identity="OP669-S2",
-                    published_efficiency_m_inverse_s=452.49,
-                    published_finding=(
-                        "Published second-stage variant with higher measured efficiency than "
-                        "the seed and cross-reactivity toward the S3 fusion substrate at S2."
-                    ),
-                ),
-            ),
-            mutant_controls=(
+            seed_control=control_from(hidden["seed_control"]),
+            controls=tuple(control_from(record) for record in hidden["controls"]),
+            mutant_controls=tuple(
                 HiddenMutantOutcome(
-                    identity="DP622-S2 Y91F",
-                    published_finding="Published single mutant with enhanced measured efficiency.",
-                ),
-                HiddenMutantOutcome(
-                    identity="DP622-S2 D126A",
-                    published_finding="Published single mutant with enhanced measured efficiency.",
-                ),
-                HiddenMutantOutcome(
-                    identity="DP622-S2 H172A",
-                    published_finding="Published mutant with decreased measured efficiency.",
-                ),
-                HiddenMutantOutcome(
-                    identity="DP622-S2 Y91F/D126A",
-                    published_finding="Published double mutant with decreased measured efficiency.",
-                ),
+                    identity=record["identity"],
+                    published_finding=record["finding"],
+                    source_location=record["source_location"],
+                )
+                for record in hidden["mutant_controls"]
             ),
-            retrospective_disclosure=(
-                "Retrospective comparison only; possible biological model training-data "
-                "contamination cannot be excluded."
-            ),
+            retrospective_disclosure=hidden["retrospective_disclosure"],
         )

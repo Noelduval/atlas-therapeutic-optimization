@@ -3,6 +3,7 @@
 import json
 from hashlib import sha256
 
+from atlas.domain.enums import EventKind
 from atlas.domain.models import DecisionTrace, ScientificEvent
 
 
@@ -54,7 +55,15 @@ def render_scientific_notebook(events: tuple[ScientificEvent, ...]) -> str:
         "This notebook is deterministically rendered from the append-only scientific event ledger.",
         "",
     ]
-    for event in _ordered(events):
+    prelock_events = tuple(
+        event
+        for event in _ordered(events)
+        if event.kind not in {
+            EventKind.RETROSPECTIVE_LABELS_REVEALED,
+            EventKind.FINAL_REPORT_PRODUCED,
+        }
+    )
+    for event in prelock_events:
         sections.extend(
             [
                 f"## {event.sequence:02d}. {event.stage}",

@@ -1,10 +1,12 @@
 import json
 from datetime import UTC, datetime
 from hashlib import sha256
+from pathlib import Path
 
 import pytest
 
 from atlas.challenge.hidden import HiddenLabelRepository
+from atlas.challenge.assets import file_sha256, load_asset_manifest, load_sequence_assets
 from atlas.challenge.vita import load_visible_challenge
 from atlas.domain.enums import Availability, EventKind
 from atlas.domain.models import CampaignConfig, RecommendationLock
@@ -36,17 +38,77 @@ def test_visible_challenge_contains_only_canonical_prelock_facts() -> None:
     assert dataset.structural_reference.is_active_enzyme is False
 
 
-def test_exact_candidate_sequences_and_supplementary_assets_are_unavailable() -> None:
+def test_active_candidate_sequences_remain_unavailable_but_supplement_was_recovered() -> None:
     dataset = load_visible_challenge()
     assert dataset.seed.sequence is None
     assert dataset.seed.sequence_availability is Availability.UNAVAILABLE
-    assert dataset.supplementary_assets is Availability.UNAVAILABLE
+    assert dataset.supplementary_assets is Availability.AVAILABLE
+
+
+def test_recovered_structure_assets_match_manifest_checksums() -> None:
+    root = Path(__file__).resolve().parents[2]
+    manifest = load_asset_manifest()
+    expected = {
+        "pdb_23wn": root / "references/structures/23WN.cif",
+        "emdb_69322_metadata": root / "references/structures/EMD-69322_metadata.json",
+        "vita_supplementary": root / "references/vita_abeta_metalloprotease_supplementary.pdf",
+    }
+    for asset_id, path in expected.items():
+        assert path.is_file()
+        assert manifest["assets"][asset_id]["availability"] == "AVAILABLE"
+        assert manifest["assets"][asset_id]["retrieved_on"] == "2026-08-13"
+        assert manifest["assets"][asset_id]["sha256"] == file_sha256(path)
+
+
+def test_sequence_registry_never_substitutes_inactive_e96q_for_active_seed() -> None:
+    records = {record["candidate_name"]: record for record in load_sequence_assets()}
+    active = records["DP622-S2"]
+    inactive = records["DP622 E96Q deposited construct"]
+
+    assert active["availability"] == "UNAVAILABLE"
+    assert active["sequence"] is None
+    assert active["checksum"] is None
+    assert inactive["availability"] == "AVAILABLE"
+    assert inactive["active_seed"] is False
+    assert inactive["active_site_variant"] == "E96Q"
+    assert inactive["chain_source_mapping"]["pdb_id"] == "23WN"
+    assert inactive["chain_source_mapping"]["auth_chain_id"] == "A"
+    assert inactive["chain_source_mapping"]["entity_id"] == 1
+    assert inactive["chain_source_mapping"]["observed_label_seq_range"] == "15-239"
+    assert len(inactive["sequence"]) == 1513
+    assert inactive["checksum"] == f"sha256:{sha256(inactive['sequence'].encode()).hexdigest()}"
+
+
+def test_optimized_enzyme_sequences_remain_unavailable_after_official_search() -> None:
+    records = {record["candidate_name"]: record for record in load_sequence_assets()}
+    for name in ("OP609-S2", "OP669-S2"):
+        assert records[name]["availability"] == "UNAVAILABLE"
+        assert records[name]["sequence"] is None
+        assert records[name]["checksum"] is None
 
 
 def test_visible_manifest_does_not_contain_hidden_outcomes_or_control_identities() -> None:
     serialized = load_visible_challenge().model_dump_json()
-    for forbidden in ("OP609", "OP669", "325.26", "3045.14", "kcat", "retrospective_rank"):
+    for forbidden in (
+        "OP609",
+        "OP669",
+        "325.26",
+        "3045.14",
+        "452.49",
+        "0.02395",
+        "kcat",
+        "retrospective_rank",
+    ):
         assert forbidden not in serialized
+
+
+def test_hidden_asset_is_not_loaded_until_lock_validation_completes(monkeypatch) -> None:
+    def fail_if_loaded():
+        raise AssertionError("hidden asset was loaded before lock validation")
+
+    monkeypatch.setattr("atlas.challenge.hidden.load_hidden_label_asset", fail_if_loaded)
+    with pytest.raises(ValueError, match="recommendation lock"):
+        HiddenLabelRepository().reveal(None, None)
 
 
 def test_hidden_labels_require_a_persisted_recommendation_lock(tmp_path) -> None:
@@ -127,3 +189,20 @@ def test_hidden_reveal_rejects_self_consistent_trace_that_contradicts_lock(tmp_p
 
     with pytest.raises(ValueError, match="Decision Trace contradicts"):
         HiddenLabelRepository().reveal(lock, forged_dir / "recommendation-lock.json")
+
+
+def test_source_backed_kinetics_are_revealed_only_after_persisted_lock(tmp_path) -> None:
+    run_dir = tmp_path / "run"
+    run = run_campaign(CampaignConfig(), run_dir, profile="demo_cached")
+    revealed = run.retrospective_outcomes
+    controls = {control.identity: control for control in revealed.controls}
+
+    assert revealed.seed_control.published_kcat_s_inverse == 0.00191
+    assert revealed.seed_control.published_km_micromolar == 5.87
+    assert revealed.seed_control.published_efficiency_m_inverse_s == 325.26
+    assert controls["OP609-S2"].published_kcat_s_inverse == 0.02395
+    assert controls["OP609-S2"].published_km_micromolar == 7.86
+    assert controls["OP609-S2"].published_efficiency_m_inverse_s == 3045.14
+    assert controls["OP669-S2"].published_kcat_s_inverse == 0.00172
+    assert controls["OP669-S2"].published_km_micromolar == 3.80
+    assert controls["OP669-S2"].published_efficiency_m_inverse_s == 452.49
