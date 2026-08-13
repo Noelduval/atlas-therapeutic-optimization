@@ -9,6 +9,7 @@ NAVIGATION = (
     "Candidates",
     "Structures",
     "Evidence",
+    "Decision Trace",
     "Scientific Notebook",
     "Benchmarks",
     "Methods",

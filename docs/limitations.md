@@ -23,6 +23,10 @@ the DP622-S2 / Aβ42 / S2 Challenge and its retrospective supporting experiments
   DP622-S2. Back-mutating E96Q would be an unsupported sequence inference.
 - The recovered experimental labels are aggregate figure/reported values, not
   raw assay observations. They support post-lock retrospective comparison only.
+- Raw assay-level measurements and named optimized-variant coordinate/design
+  files are explicitly `UNAVAILABLE` in the asset registry.
+- Full EMD-69322 map voxels are publicly hosted but `UNAVAILABLE` locally; they
+  were intentionally not downloaded because Atlas v1 does not consume them.
 - Candidate ranking does not establish cleavage, selectivity, safety,
   developability, efficacy, or clinical benefit. Experimental validation remains
   necessary.

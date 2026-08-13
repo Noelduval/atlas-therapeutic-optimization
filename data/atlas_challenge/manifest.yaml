@@ -54,3 +54,28 @@ assets:
     sha256: null
     evidence_class: author_data_availability_repository
     provenance: Repository named by the paper; contains pipeline examples but no named DP622-S2, OP609-S2, or OP669-S2 enzyme sequence.
+  raw_assay_level_measurements:
+    availability: UNAVAILABLE
+    local_path: null
+    source_url: null
+    retrieved_on: null
+    sha256: null
+    evidence_class: unavailable_after_official_source_search
+    provenance: Published aggregate figure values were recovered, but raw assay-level measurements were not deposited in the searched official sources.
+  optimized_variant_coordinate_design_files:
+    availability: UNAVAILABLE
+    local_path: null
+    source_url: null
+    retrieved_on: null
+    sha256: null
+    evidence_class: unavailable_after_official_source_search
+    provenance: Named OP609-S2 and OP669-S2 coordinate/design files were not present in the searched official sources.
+  emdb_full_map_voxels:
+    availability: UNAVAILABLE
+    local_path: null
+    source_url: https://www.ebi.ac.uk/emdb/EMD-69322
+    retrieved_on: null
+    sha256: null
+    evidence_class: intentionally_not_downloaded
+    public_source_status: AVAILABLE_NOT_DOWNLOADED
+    provenance: Full EMD-69322 map voxels are not present locally because the current Atlas workflow does not consume them.

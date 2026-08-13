@@ -512,8 +512,9 @@ def produce_final_report(state: AtlasState) -> dict:
             "The inactive E96Q structure supports geometry interpretation only.",
         ),
         known_unknowns=(
-            "Exact DP622-S2 and optimized-variant sequences are unavailable.",
-            "Supplementary design and structure assets are unavailable.",
+            "Exact active DP622-S2, OP609-S2, and OP669-S2 sequences are unavailable.",
+            "Raw assay-level measurements and named optimized-variant coordinate/design files are unavailable.",
+            "Full EMDB map voxels are not present locally because the current workflow does not consume them.",
         ),
         model_disagreements=state["critic_review"].conflicts,
         scientific_risks=(

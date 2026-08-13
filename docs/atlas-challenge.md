@@ -28,6 +28,20 @@ provenance notes are recorded in `data/atlas_challenge/manifest.yaml`. The
 primary EMDB map was intentionally not downloaded because the current
 implementation uses metadata and the RCSB atomic coordinates, not map voxels.
 
+## Unavailable asset manifest
+
+The following have explicit `UNAVAILABLE` records and are not inferred:
+
+- exact active DP622-S2, OP609-S2, and OP669-S2 enzyme sequences in
+  `data/atlas_challenge/sequences.yaml`;
+- raw assay-level measurements;
+- named optimized-variant coordinate/design files; and
+- local EMD-69322 map voxels. The map is publicly hosted but intentionally not
+  downloaded because no Atlas v1 execution path consumes it.
+
+The latter three local availability records are in
+`data/atlas_challenge/manifest.yaml`.
+
 ## Scientific contract
 
 - Aβ42 sequence: `DAEFRHDSGYEVHHQKLVFFAEDVGSNKGAIIGLMVGGVVIA`

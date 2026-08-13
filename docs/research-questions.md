@@ -10,6 +10,10 @@ Every executable question is answered within the DP622-S2 / Aβ42 / S2 Challenge
 
 ## RQ4 — How much does each biological foundation model contribute?
 
+In `demo_cached`, this is operationalized as a contribution ablation over the
+seven deterministic evaluator dimensions. It does not measure the performance of
+production biological foundation models, because v1 invokes none.
+
 ## RQ5 — How frequently do the models disagree?
 
 ## RQ6 — Is catalytic-geometry preservation necessary but insufficient?

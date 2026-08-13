@@ -36,8 +36,9 @@ uv run atlas benchmark run --profile demo_cached
 ```
 
 The single benchmark family includes iterative Atlas, a compute-matched
-single-pass baseline, Scientific Critic ablation, sequence/structure evaluator
-ablations, disagreement, a negative-result fixture, and seed retention.
+single-pass baseline, Scientific Critic ablation, contribution ablations for all
+seven evaluator dimensions, disagreement, a negative-result fixture, and seed
+retention.
 
 ## Run the UI
 
@@ -78,3 +79,8 @@ sequence is the inactive E96Q fusion construct. Exact active DP622-S2, OP609-S2,
 and OP669-S2 sequences remain unavailable after the official-source search and
 must not be inferred. The EMDB map itself was not downloaded because no current
 `demo_cached` path consumes map voxels.
+
+The manifest also records raw assay-level measurements, named optimized-variant
+coordinate/design files, and local full-map voxels as `UNAVAILABLE`. The EMDB
+map remains publicly hosted; `UNAVAILABLE` here describes the local Atlas asset
+state, not public repository availability.

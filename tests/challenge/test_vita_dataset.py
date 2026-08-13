@@ -60,6 +60,14 @@ def test_recovered_structure_assets_match_manifest_checksums() -> None:
         assert manifest["assets"][asset_id]["sha256"] == file_sha256(path)
 
 
+def test_missing_scientific_assets_have_explicit_unavailable_registry_entries() -> None:
+    assets = load_asset_manifest()["assets"]
+    assert assets["raw_assay_level_measurements"]["availability"] == "UNAVAILABLE"
+    assert assets["optimized_variant_coordinate_design_files"]["availability"] == "UNAVAILABLE"
+    assert assets["emdb_full_map_voxels"]["availability"] == "UNAVAILABLE"
+    assert assets["emdb_full_map_voxels"]["public_source_status"] == "AVAILABLE_NOT_DOWNLOADED"
+
+
 def test_sequence_registry_never_substitutes_inactive_e96q_for_active_seed() -> None:
     records = {record["candidate_name"]: record for record in load_sequence_assets()}
     active = records["DP622-S2"]

@@ -10,6 +10,7 @@ NAVIGATION = (
     "Candidates",
     "Structures",
     "Evidence",
+    "Decision Trace",
     "Scientific Notebook",
     "Benchmarks",
     "Methods",
@@ -80,3 +81,41 @@ def test_completed_run_exposes_structure_and_evidence_claim_boundaries() -> None
     assert "Synthetic demo evidence" in evidence
     assert "not biological model output" in evidence
     assert "kcat" not in evidence
+
+
+def test_completed_run_exposes_lock_boundary_decision_trace_and_limitations() -> None:
+    at = _app()
+    at.button[0].click().run()
+    at.button[0].click().run(timeout=10)
+
+    at.sidebar.radio[0].set_value("Run Monitor").run()
+    monitor = _rendered_values(at)
+    assert "revealed only after the persisted recommendation lock" in monitor
+    assert "excluded from pre-lock ranking" in monitor
+
+    at.sidebar.radio[0].set_value("Decision Trace").run()
+    trace = _rendered_values(at)
+    assert "Pre-reveal reasoning trace" in trace
+    assert "DP622-S2" in trace
+    assert "recommended" in trace
+    assert "SHA-256" in trace
+
+    at.sidebar.radio[0].set_value("Methods").run()
+    methods = _rendered_values(at)
+    assert "Limitations" in methods
+    assert "not experimental validation" in methods
+    assert "inactive E96Q" in methods
+
+
+def test_desktop_and_mobile_navigation_stay_synchronized() -> None:
+    at = _app()
+    at.button[0].click().run()
+    at.button[0].click().run(timeout=10)
+
+    at.sidebar.radio[0].set_value("Methods").run()
+    assert at.selectbox[0].value == "Methods"
+    assert at.title[0].value == "Methods"
+
+    at.selectbox[0].set_value("Decision Trace").run()
+    assert at.sidebar.radio[0].value == "Decision Trace"
+    assert at.title[0].value == "Decision Trace"

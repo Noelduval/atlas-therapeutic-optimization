@@ -71,6 +71,10 @@ def render_run_monitor(run: CampaignRun) -> None:
     st.markdown(f"### {run.final_report.winning_candidate}")
     st.code(run.final_report.status.value, language=None)
     st.markdown(run.recommendation_lock.rationale)
+    st.success(
+        "Published retrospective labels were revealed only after the persisted recommendation lock; "
+        "they were excluded from pre-lock ranking, candidate evidence, and recommendation reasoning."
+    )
     st.subheader("Evidence confidence")
     st.info(
         "Synthetic demo evidence is used for orchestration demonstration only and is not measured evidence."
@@ -159,6 +163,27 @@ def render_notebook(run: CampaignRun) -> None:
     st.markdown(render_scientific_notebook(run.events))
 
 
+def render_decision_trace(run: CampaignRun) -> None:
+    trace = run.decision_trace
+    st.title("Decision Trace")
+    st.caption(
+        "Pre-reveal reasoning trace bound to the persisted recommendation lock; published retrospective labels are excluded."
+    )
+    for candidate, decision in trace.candidate_decisions.items():
+        st.markdown(f"**Locked candidate decision:** `{candidate}` → `{decision}`")
+    st.markdown(f"**SHA-256 trace digest:** `{trace.digest}`")
+    st.dataframe(
+        [
+            {"Order": index, "Stage": stage, "Event ID": event_id}
+            for index, (stage, event_id) in enumerate(
+                zip(trace.stages, trace.event_ids, strict=True), start=1
+            )
+        ],
+        hide_index=True,
+        width="stretch",
+    )
+
+
 def render_benchmarks() -> None:
     st.title("Benchmarks")
     if st.session_state.atlas_benchmark is None:
@@ -195,6 +220,13 @@ def render_methods() -> None:
     st.warning(
         "The demo does not claim biological model performance, experimental improvement, therapeutic validation, or clinical relevance."
     )
+    st.subheader("Limitations")
+    st.markdown(
+        "This is not experimental validation. Evidence used for candidate ranking is deterministic synthetic demo data. "
+        "The recovered 23WN structure is the inactive E96Q fusion construct, not the active DP622-S2 seed. "
+        "Exact active and optimized-control sequences, raw assay-level measurements, named optimized-variant "
+        "coordinate/design files, and local EMDB map voxels remain unavailable."
+    )
 
 
 def render_selected_view(selection: str, run: CampaignRun) -> None:
@@ -204,6 +236,7 @@ def render_selected_view(selection: str, run: CampaignRun) -> None:
         "Candidates": lambda: render_candidates(run),
         "Structures": render_structures,
         "Evidence": lambda: render_evidence(run),
+        "Decision Trace": lambda: render_decision_trace(run),
         "Scientific Notebook": lambda: render_notebook(run),
         "Benchmarks": render_benchmarks,
         "Methods": render_methods,

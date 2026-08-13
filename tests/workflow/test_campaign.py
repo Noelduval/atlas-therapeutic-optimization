@@ -86,6 +86,13 @@ def test_campaign_run_retains_auditable_scientific_state(tmp_path) -> None:
         "OP609-S2",
         "OP669-S2",
     }
+    unknowns = " ".join(run.final_report.known_unknowns).lower()
+    assert "active dp622-s2" in unknowns
+    assert "op609-s2" in unknowns
+    assert "op669-s2" in unknowns
+    assert "raw assay-level measurements" in unknowns
+    assert "optimized-variant coordinate/design files" in unknowns
+    assert "full emdb map voxels" in unknowns
 
 
 def test_recommendation_lock_binds_exact_prelock_ledger_snapshot(tmp_path) -> None:

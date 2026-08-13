@@ -16,12 +16,17 @@ st.set_page_config(
 st.markdown(APP_CSS, unsafe_allow_html=True)
 initialize_session()
 
+
 def _select_mobile_view() -> None:
-    st.session_state.atlas_active_view = st.session_state.atlas_mobile_navigation
+    selected_view = st.session_state.atlas_mobile_navigation
+    st.session_state.atlas_active_view = selected_view
+    st.session_state.atlas_sidebar_navigation = selected_view
 
 
 def _select_sidebar_view() -> None:
-    st.session_state.atlas_active_view = st.session_state.atlas_sidebar_navigation
+    selected_view = st.session_state.atlas_sidebar_navigation
+    st.session_state.atlas_active_view = selected_view
+    st.session_state.atlas_mobile_navigation = selected_view
 
 
 st.selectbox(
