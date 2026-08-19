@@ -37,11 +37,11 @@
 
 **Interfaces:** `prepare_run_directory(config) -> Path`; `validate_run_context(path, expected) -> None`; `PipelineConfig.resume`; `PipelineConfig.stop_after`; CLI flags `--run-id`, `--resume`, `--stop-after`.
 
-- [ ] Write failing tests proving an identical context resumes, an Atlas/input/model mismatch is rejected, and a stopped/resumed run reuses real-shaped stage CSVs.
-- [ ] Implement `run_context.json` with Atlas SHA, input SHA-256, pinned model SHAs, dynamics mode, and gate-policy version.
-- [ ] Split official known scoring into cached single and double stages; validate schemas and requested IDs on every cache read.
-- [ ] Implement ordered stop points `structure`, `thermompnn`, `thermompnn-d`, `geometry`, `dynamics`, and `validation` without moving scientific logic into the notebook.
-- [ ] Run `pytest tests/test_run_context.py tests/test_pipeline.py tests/test_cli.py -q` and require a pass.
+- [x] Write failing tests proving an identical context resumes, an Atlas/input/model mismatch is rejected, and a stopped/resumed run reuses real-shaped stage CSVs.
+- [x] Implement `run_context.json` with Atlas SHA, input SHA-256, pinned model SHAs, dynamics mode, and gate-policy version.
+- [x] Split official known scoring into cached single and double stages; validate schemas and requested IDs on every cache read.
+- [x] Implement ordered stop points `structure`, `thermompnn`, `thermompnn-d`, `geometry`, `dynamics`, and `validation` without moving scientific logic into the notebook.
+- [x] Run `pytest tests/test_run_context.py tests/test_pipeline.py tests/test_cli.py -q` and require a pass.
 
 ### Task 3: Scientifically defensible OpenMM fragment setup
 

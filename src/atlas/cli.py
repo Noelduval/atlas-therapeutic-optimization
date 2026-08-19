@@ -9,6 +9,7 @@ import pandas as pd
 import typer
 
 from atlas.pipeline import PipelineConfig, run_pipeline
+from atlas.preflight import run_preflight as run_environment_preflight
 from atlas.structure.reconstruct import reconstruct_active_like
 from atlas.validation.validation_gate import (
     evaluate_validation,
@@ -21,6 +22,44 @@ app = typer.Typer(
     no_args_is_help=True,
     help="Validation-gated stability and catalytic-geometry screening for DP622.",
 )
+
+
+@app.command()
+def preflight(
+    input_path: Annotated[
+        Path, typer.Option("--input", help="Committed 23WN mmCIF input.")
+    ] = Path("data/23WN.cif"),
+    atlas_repo: Annotated[
+        Path, typer.Option(help="Atlas Git checkout to verify.")
+    ] = Path("."),
+    thermompnn_repo: Annotated[
+        Path, typer.Option(help="Pinned official ThermoMPNN repository.")
+    ] = Path(".external/ThermoMPNN"),
+    thermompnn_d_repo: Annotated[
+        Path, typer.Option(help="Pinned official ThermoMPNN-D repository.")
+    ] = Path(".external/ThermoMPNN-D"),
+    output_json: Annotated[
+        Path, typer.Option(help="Machine-readable preflight report.")
+    ] = Path("outputs/preflight.json"),
+) -> None:
+    """Fail fast on GPU, CUDA, checkout, import, or 23WN setup errors."""
+    try:
+        report = run_environment_preflight(
+            input_path,
+            atlas_repo,
+            thermompnn_repo,
+            thermompnn_d_repo,
+        )
+        report.write_json(output_json)
+    except Exception as exc:
+        typer.echo(f"Preflight failed: {type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(f"Preflight passed on {report.gpu_name}")
+    typer.echo(f"Free GPU memory: {report.gpu_memory_free_mib} MiB")
+    typer.echo(f"Atlas commit: {report.atlas_commit}")
+    typer.echo(f"ThermoMPNN commit: {report.thermompnn_commit}")
+    typer.echo(f"ThermoMPNN-D commit: {report.thermompnn_d_commit}")
+    typer.echo(f"Report: {output_json}")
 
 
 @app.command()
@@ -86,6 +125,20 @@ def run(
         str,
         typer.Option(help="OpenMM stage: minimize, short-md, or skip."),
     ] = "minimize",
+    run_id: Annotated[
+        str | None,
+        typer.Option(help="Stable run identifier required for resumable Colab stages."),
+    ] = None,
+    resume: Annotated[
+        bool,
+        typer.Option(help="Reuse only provenance-matched completed stage outputs."),
+    ] = False,
+    stop_after: Annotated[
+        str | None,
+        typer.Option(
+            help="Stop after structure, thermompnn, thermompnn-d, geometry, dynamics, or validation."
+        ),
+    ] = None,
 ) -> None:
     """Run reconstruction, benchmarks, hard validation, then conditional design."""
     try:
@@ -96,10 +149,17 @@ def run(
                 thermompnn_repo=thermompnn_repo,
                 thermompnn_d_repo=thermompnn_d_repo,
                 dynamics_mode=dynamics_mode,
+                run_id=run_id,
+                resume=resume,
+                stop_after=stop_after,
             )
         )
     except Exception as exc:
         typer.echo(f"Atlas stopped: {type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(2) from exc
-    typer.echo(f"Atlas completed: {result.run_dir}")
-    typer.echo("Novel candidates are computational predictions requiring experimental validation.")
+    typer.echo(f"Atlas status: {result.status}")
+    typer.echo(f"Run directory: {result.run_dir}")
+    if result.status == "completed":
+        typer.echo(
+            "Novel candidates are computational predictions requiring experimental validation."
+        )

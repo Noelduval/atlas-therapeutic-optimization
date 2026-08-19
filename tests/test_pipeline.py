@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import pandas as pd
 import pytest
 
-from atlas.pipeline import PipelineConfig, run_pipeline
+from atlas.pipeline import OfficialStabilityProvider, PipelineConfig, run_pipeline
+from atlas.stability.common import StabilityVariant, normalized_frame, normalized_row
 from atlas.validation.validation_gate import ValidationGateError
 
 
@@ -13,6 +15,7 @@ class FakeStabilityProvider:
     def __init__(self, double_score: float) -> None:
         self.double_score = double_score
         self.candidates_called = False
+        self.known_calls = 0
 
     @staticmethod
     def _rows(values):
@@ -33,6 +36,7 @@ class FakeStabilityProvider:
         )
 
     def score_known(self, pdb_path, output_dir):
+        self.known_calls += 1
         return self._rows(
             {
                 "WT": 0.0,
@@ -89,3 +93,102 @@ def test_successful_boundary_produces_ranked_computational_candidates(
     assert len(dynamics) > 5
     assert len(list((result.run_dir / "top_5_candidate_pdbs").glob("*.pdb"))) == 5
     assert (result.run_dir / "figures" / "candidate_ranking_summary.png").is_file()
+
+
+def test_resume_reuses_completed_stability_and_finishes_later_stage(
+    tmp_path: Path,
+) -> None:
+    provider = FakeStabilityProvider(double_score=1.8)
+    stopped = run_pipeline(
+        PipelineConfig(
+            input_structure=Path("data/23WN.cif"),
+            output_root=tmp_path,
+            run_id="run-resume",
+            dynamics_mode="skip",
+            stop_after="thermompnn-d",
+        ),
+        stability_provider=provider,
+    )
+    assert stopped.status == "stopped_after_thermompnn-d"
+    assert provider.known_calls == 1
+    result = run_pipeline(
+        PipelineConfig(
+            input_structure=Path("data/23WN.cif"),
+            output_root=tmp_path,
+            run_id="run-resume",
+            dynamics_mode="skip",
+            resume=True,
+        ),
+        stability_provider=provider,
+    )
+    assert result.status == "completed"
+    assert provider.known_calls == 1
+
+
+def test_official_stability_stages_resume_between_single_and_double(
+    tmp_path: Path,
+) -> None:
+    class FakeRunner:
+        def __init__(self, model: str, scores: dict[str, float]) -> None:
+            self.model = model
+            self.scores = scores
+            self.calls = 0
+
+        def run(self, pdb_path, variants, output_dir):
+            self.calls += 1
+            return normalized_frame(
+                [
+                    normalized_row(variant, self.model, self.scores[variant.variant_id])
+                    for variant in variants
+                ]
+            )
+
+    provider = OfficialStabilityProvider(tmp_path / "single", tmp_path / "double")
+    provider.single = FakeRunner(
+        "ThermoMPNN", {"Y91F": -0.2, "D126A": 0.2, "H172A": 0.1}
+    )
+    provider.double = FakeRunner(
+        "ThermoMPNN-D epistatic", {"Y91F_D126A": 1.8}
+    )
+    base = dict(
+        input_structure=Path("data/23WN.cif"),
+        output_root=tmp_path,
+        run_id="official-stages",
+        dynamics_mode="skip",
+    )
+    single = run_pipeline(
+        PipelineConfig(**base, stop_after="thermompnn"),
+        stability_provider=provider,
+    )
+    assert single.status == "stopped_after_thermompnn"
+    assert provider.single.calls == 1
+    assert provider.double.calls == 0
+
+    double = run_pipeline(
+        PipelineConfig(**base, resume=True, stop_after="thermompnn-d"),
+        stability_provider=provider,
+    )
+    assert double.status == "stopped_after_thermompnn-d"
+    assert provider.single.calls == 1
+    assert provider.double.calls == 1
+    scores = pd.read_csv(double.run_dir / "thermompnn_scores.csv")
+    assert set(scores.variant_id) == {
+        "WT", "Y91F", "D126A", "H172A", "Y91F_D126A"
+    }
+
+
+def test_stop_after_validation_records_real_gate_decision(tmp_path: Path) -> None:
+    result = run_pipeline(
+        PipelineConfig(
+            input_structure=Path("data/23WN.cif"),
+            output_root=tmp_path,
+            run_id="validation-only",
+            dynamics_mode="skip",
+            stop_after="validation",
+        ),
+        stability_provider=FakeStabilityProvider(double_score=1.8),
+    )
+    status = json.loads((result.run_dir / "execution_status.json").read_text())
+    assert result.status == "stopped_after_validation"
+    assert status["scientific_conclusion"] == "VALIDATED"
+    assert status["candidate_generation_decision"] == "allowed"

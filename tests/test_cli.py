@@ -45,3 +45,25 @@ def test_run_missing_models_exits_nonzero_with_action(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "repository" in result.output.lower()
+
+
+def test_run_can_stop_after_structure_and_resume_without_models(tmp_path: Path) -> None:
+    args = [
+        "run",
+        "--input",
+        "data/23WN.cif",
+        "--output-root",
+        str(tmp_path),
+        "--run-id",
+        "colab-checkpoint",
+        "--dynamics-mode",
+        "skip",
+        "--stop-after",
+        "structure",
+    ]
+    first = runner.invoke(app, args)
+    assert first.exit_code == 0, first.output
+    assert "stopped_after_structure" in first.output
+    resumed = runner.invoke(app, [*args, "--resume"])
+    assert resumed.exit_code == 0, resumed.output
+    assert (tmp_path / "colab-checkpoint" / "run_context.json").is_file()
