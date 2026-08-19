@@ -91,10 +91,10 @@
 
 **Interfaces:** `run_pipeline(PipelineConfig, StabilityProvider | None = None, DynamicsProvider | None = None) -> PipelineResult`; CLI `atlas run --input data/23WN.cif --output-root outputs` exits 0 only on a completed validated run.
 
-- [ ] Write an integration test whose failed fake gate exits nonzero and leaves every novel-output path absent; observe failure.
-- [ ] Implement ordered phases, fresh run directories, warnings/provenance, schemas, and deterministic plots.
-- [ ] Write and pass successful-boundary tests using real structure/geometry plus external-tool fakes.
-- [ ] Run `python -m pytest tests/test_pipeline.py tests/reporting tests/test_cli.py -q`.
+- [x] Write an integration test whose failed fake gate exits nonzero and leaves every novel-output path absent; observe failure.
+- [x] Implement ordered phases, fresh run directories, warnings/provenance, schemas, and deterministic plots.
+- [x] Write and pass successful-boundary tests using real structure/geometry plus external-tool fakes.
+- [x] Run `python -m pytest tests/test_pipeline.py tests/reporting tests/test_cli.py -q`.
 
 ### Task 8: Colab and portfolio documentation
 

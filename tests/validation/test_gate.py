@@ -83,3 +83,12 @@ def test_regressed_zinc_geometry_rejects_beneficial_control() -> None:
     )
     assert not result.passed
     assert not result.table.set_index("variant_id").loc["Y91F", "geometry_preserved"]
+
+
+def test_completed_dynamic_geometry_can_reject_beneficial_control() -> None:
+    dynamics = _geometry({"Y91F": {"zn_scissile_oxygen_distance_a": 3.0}})
+    dynamics["status"] = "completed"
+    result = evaluate_validation(_stability(), _geometry(), dynamics)
+    assert not result.passed
+    row = result.table.set_index("variant_id").loc["Y91F"]
+    assert not row["dynamic_geometry_preserved"]

@@ -75,7 +75,18 @@ def evaluate_validation(
     joined = joined.merge(geometry, on="variant_id", how="left")
     reference = joined.set_index("variant_id").loc["WT"]
 
+    dynamic_rows: dict[str, pd.Series] = {}
+    dynamic_reference: pd.Series | None = None
+    if dynamics is not None and not dynamics.empty and "variant_id" in dynamics:
+        dynamic_rows = {
+            str(row["variant_id"]): row for _, row in dynamics.iterrows()
+        }
+        candidate_reference = dynamic_rows.get("WT")
+        if candidate_reference is not None and candidate_reference.get("status") == "completed":
+            dynamic_reference = candidate_reference
+
     preserved: list[bool] = []
+    dynamic_preserved: list[bool | None] = []
     geometry_reason: list[str] = []
     stability_class: list[str] = []
     outcomes: list[str] = []
@@ -83,9 +94,22 @@ def evaluate_validation(
     for _, row in joined.iterrows():
         variant = str(row["variant_id"])
         geometry_ok, geometry_note = _geometry_preserved(row, reference)
+        dynamic_ok: bool | None = None
+        dynamic_row = dynamic_rows.get(variant)
+        if (
+            dynamic_reference is not None
+            and dynamic_row is not None
+            and dynamic_row.get("status") == "completed"
+        ):
+            dynamic_ok, dynamic_note = _geometry_preserved(
+                dynamic_row, dynamic_reference
+            )
+            geometry_note += f"; dynamic {dynamic_note}"
+            geometry_ok = geometry_ok and dynamic_ok
         ddg = float(row["predicted_ddg_or_score"])
         stable = ddg <= STABILITY_LIMIT_KCAL_MOL
         preserved.append(geometry_ok)
+        dynamic_preserved.append(dynamic_ok)
         geometry_reason.append(geometry_note)
         stability_class.append("non_regressive" if stable else "regressive")
         if variant == "WT":
@@ -107,6 +131,7 @@ def evaluate_validation(
                 )
     joined["stability_class"] = stability_class
     joined["geometry_preserved"] = pd.Series(preserved, dtype=bool)
+    joined["dynamic_geometry_preserved"] = dynamic_preserved
     joined["geometry_gate_reason"] = geometry_reason
     joined["gate_outcome"] = outcomes
 
