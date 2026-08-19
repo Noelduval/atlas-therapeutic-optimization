@@ -128,6 +128,16 @@ class OfficialStabilityProvider:
         variants: Sequence[StabilityVariant],
         output_dir: Path,
     ) -> pd.DataFrame:
+        known_sweep = (
+            output_dir.parent
+            / "single"
+            / f"ThermoMPNN_inference_{pdb_path.stem}.csv"
+        )
+        if known_sweep.is_file():
+            print(f"Reusing genuine ThermoMPNN full sweep: {known_sweep}")
+            return self.single.normalize_existing(
+                known_sweep, variants, output_dir
+            )
         return self.single.run(pdb_path, variants, output_dir)
 
 

@@ -60,10 +60,10 @@
 
 **Interfaces:** Visible `ATLAS_REF`; configuration-derived `RUN_ID`; full `atlas preflight`; staged production CLI calls with `--resume` and `--stop-after`; optional Drive checkpoint root.
 
-- [ ] Write a failing notebook-contract test for the configured branch, user instructions, preflight, stage headings, production CLI use, resume flags, and export cell.
-- [ ] Rewrite notebook cells with short first-time-user instructions and clear progress messages.
-- [ ] Use separate CLI processes for ThermoMPNN and ThermoMPNN-D and show each output before continuing.
-- [ ] Validate notebook JSON, compile code cells, and run the contract test.
+- [x] Write a failing notebook-contract test for the configured branch, user instructions, preflight, stage headings, production CLI use, resume flags, and export cell.
+- [x] Rewrite notebook cells with short first-time-user instructions and clear progress messages.
+- [x] Use separate CLI processes for ThermoMPNN and ThermoMPNN-D and show each output before continuing.
+- [x] Validate notebook JSON, compile code cells, and run the contract test.
 
 ### Task 5: Verify and publish without merge
 

@@ -70,14 +70,22 @@ directory and refuses to overwrite an existing run.
 ## Colab
 
 1. Open `notebooks/Atlas_DP622_Colab.ipynb` in Google Colab.
-2. Choose **Runtime → Change runtime type → GPU**.
-3. Run all cells in order.
-4. Inspect `known_mutation_validation.csv` before interpreting any novel files.
-5. Download the generated ZIP from the final cell.
+2. Choose **Runtime → Change runtime type → T4 GPU**.
+3. Confirm the visible `ATLAS_REF` is the branch or immutable commit you intend
+   to review; it defaults to `codex/atlas-v1-dynamic-geometry` for this PR.
+4. Run all cells in order. The preflight stops before model work if the runtime,
+   checkout, model revisions, input structure, or imports are wrong.
+5. Inspect `known_mutation_validation.csv` before interpreting any novel files.
+6. Download the generated ZIP from the final cell.
 
-The notebook uses the repository's committed 23WN file. An optional cell can
-mount Drive for persistent output; no Rosetta license, Docker image, or cloud VM
-setup is involved.
+The notebook uses the repository's committed 23WN file and mounts Google Drive
+by default at `MyDrive/Atlas/checkpoints`. Stages call the production CLI with a
+configuration-derived run ID; resume is accepted only when the stored Atlas,
+input, model, dynamics, and validation-policy context matches. Completed raw
+model CSVs and scientific outputs survive a Colab runtime restart. Each model
+stage runs in its own process, and the candidate stage reuses the genuine
+ThermoMPNN exhaustive single-mutant CSV produced before validation. No Rosetta
+license, Docker image, premium Colab tier, or separate cloud VM is required.
 
 ## Expected runtime
 
@@ -86,12 +94,13 @@ setup is involved.
 | Environment/model installation | 5–15 min |
 | Reconstruction + five static geometries | <1 min |
 | ThermoMPNN single-site sweep | 1–5 min on GPU; hardware dependent |
-| ThermoMPNN-D epistatic sweep | 1–10 min on GPU; hardware dependent |
+| ThermoMPNN-D epistatic sweep | 1–15 min on GPU; hardware dependent |
 | OpenMM minimization attempts | 1–10 min total; may skip during setup |
-| Conditional candidate phase | 5–20 min, depending on candidate count |
+| Conditional candidate phase | 2–15 min; stability rows reuse the earlier genuine sweep |
 
-These are operational estimates, not performance guarantees. `short-md` can add
-10–60 minutes if all systems parameterize successfully.
+Allow roughly 20–60 minutes for a first standard-T4 run. These are operational
+estimates, not a measured Atlas benchmark or performance guarantee. `short-md`
+can add 10–60 minutes if all systems parameterize successfully.
 
 ## Reproducibility records
 
@@ -99,3 +108,6 @@ These are operational estimates, not performance guarantees. `short-md` can add
 commits, dynamics mode, UTC time, and claim boundary. `pipeline_warnings.md`
 records missing evidence. Raw external CSVs remain under the run's `stability/`
 subdirectories and normalized scores are copied to stable top-level schemas.
+`run_context.json` is the resume identity, and `execution_status.json` separates
+`NOT_EVALUATED`, `EXTERNALLY_BLOCKED`, `BENCHMARK FAILED`, and `VALIDATED`
+outcomes without treating infrastructure failure as scientific evidence.

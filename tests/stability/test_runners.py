@@ -97,6 +97,25 @@ def test_thermompnn_rejects_missing_requested_mutation(tmp_path: Path) -> None:
         )
 
 
+def test_thermompnn_reuses_genuine_full_sweep_for_later_selection(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path, "analysis/custom_inference.py")
+    raw = tmp_path / "ThermoMPNN_inference_input.csv"
+    pd.DataFrame(
+        [
+            {"ddG_pred": -0.42, "position": 91, "wildtype": "Y", "mutation": "F"},
+            {"ddG_pred": -0.31, "position": 40, "wildtype": "D", "mutation": "A"},
+        ]
+    ).to_csv(raw, index=False)
+    novel = StabilityVariant("D40A", "D40A", "D64A")
+    scores = ThermoMPNNRunner(repo).normalize_existing(
+        raw, [novel], tmp_path / "normalized"
+    )
+    assert scores.loc[0, "variant_id"] == "D40A"
+    assert scores.loc[0, "predicted_ddg_or_score"] == pytest.approx(-0.31)
+
+
 def test_thermompnn_d_normalizes_double_output(tmp_path: Path) -> None:
     repo = _repo(tmp_path, "v2_ssm.py")
 

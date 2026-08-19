@@ -106,21 +106,25 @@ pipeline with an actionable error; scientific fixtures exist only in tests.
 ## Colab
 
 Open [`notebooks/Atlas_DP622_Colab.ipynb`](notebooks/Atlas_DP622_Colab.ipynb),
-select a GPU runtime, and run cells in order. The notebook clones this project
-and both official model repositories at fixed commits, installs OpenMM and model
-dependencies, verifies CUDA, runs the same CLI, displays validation/figures, and
-downloads a ZIP of the fresh run directory.
+select a standard T4 GPU runtime, and run cells in order. The visible
+`ATLAS_REF` defaults to `codex/atlas-v1-dynamic-geometry`. The notebook checks
+out that ref, verifies the resulting Atlas SHA and both fixed model commits,
+runs a fail-fast hardware/data/import preflight, and then invokes the production
+CLI in resumable stages. Google Drive is the default checkpoint location, so a
+runtime restart can resume the same provenance-bound run. Each predictor exits
+before the next stage starts, releasing its GPU allocations.
 
-Expected wall time on a Colab GPU is roughly 15–45 minutes including installation
-and model inference. Structural-only reconstruction is normally under one minute.
-Restrained 10 ps short MD (`--dynamics-mode short-md`) can add 10–60 minutes if
-parameterization succeeds across all structures; the default minimization path is
-faster. Runtime varies with Colab hardware and the number of post-gate candidates.
+Estimated first-run wall time on a standard Colab T4 is 20–60 minutes including
+installation, model inference, and default OpenMM minimization. This is an
+engineering estimate, not a measured Atlas benchmark. ThermoMPNN's genuine full
+single-mutant sweep is reused for post-gate candidate selection. Restrained 10 ps
+short MD (`--dynamics-mode short-md`) can add 10–60 minutes; the default
+minimization path is faster.
 
 ## Outputs
 
-Each execution uses a fresh `outputs/run-<UTC timestamp>/` directory. Before the
-gate, expect:
+Each execution uses a run directory bound to the Atlas SHA, input SHA-256, model
+commits, dynamics mode, and validation policy. Before the gate, expect:
 
 - `DP622_active_like_reconstruction.pdb`
 - `residue_numbering_map.csv`

@@ -69,7 +69,24 @@ class ThermoMPNNRunner:
             raise ScientificOutputError(
                 f"ThermoMPNN completed without expected output {csv_path}"
             )
-        frame = pd.read_csv(csv_path)
+        return self.normalize_existing(csv_path, variants, destination)
+
+    def normalize_existing(
+        self,
+        csv_path: str | Path,
+        variants: Sequence[StabilityVariant],
+        output_dir: str | Path,
+    ) -> pd.DataFrame:
+        """Select requested variants from a genuine exhaustive inference CSV."""
+
+        source = Path(csv_path).resolve()
+        destination = Path(output_dir).resolve()
+        destination.mkdir(parents=True, exist_ok=True)
+        if not source.is_file():
+            raise ScientificOutputError(
+                f"ThermoMPNN output does not exist: {source}"
+            )
+        frame = pd.read_csv(source)
         require_columns(
             frame, {"ddG_pred", "position", "wildtype", "mutation"}, "ThermoMPNN"
         )
