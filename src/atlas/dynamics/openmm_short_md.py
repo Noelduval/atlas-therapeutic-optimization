@@ -35,26 +35,45 @@ def run_short_md(
         simulation.context.setVelocitiesToTemperature(
             config.temperature_k * bundle.unit.kelvin, config.random_seed
         )
-        simulation.step(config.md_steps)
-        state = simulation.context.getState(getPositions=True, getEnergy=True)
         destination.mkdir(parents=True, exist_ok=True)
+        snapshot_dir = destination / "snapshots"
+        snapshot_dir.mkdir(exist_ok=True)
+        snapshot_count = max(1, min(config.snapshot_count, config.md_steps))
+        base_steps, remainder = divmod(config.md_steps, snapshot_count)
+        records: list[dict[str, float | int | str]] = []
+        completed_steps = 0
+        state = None
+        for snapshot_index in range(1, snapshot_count + 1):
+            steps = base_steps + (1 if snapshot_index <= remainder else 0)
+            simulation.step(steps)
+            completed_steps += steps
+            state = simulation.context.getState(getPositions=True, getEnergy=True)
+            snapshot_path = snapshot_dir / f"snapshot_{snapshot_index:03d}.pdb"
+            with snapshot_path.open("w") as handle:
+                bundle.app.PDBFile.writeFile(
+                    modeller.topology, state.getPositions(), handle, keepIds=True
+                )
+            records.append(
+                {
+                    "stage": "short_md",
+                    "step": completed_steps,
+                    "time_ps": completed_steps * config.timestep_fs / 1_000.0,
+                    "potential_kj_mol": float(
+                        state.getPotentialEnergy().value_in_unit(
+                            bundle.unit.kilojoule_per_mole
+                        )
+                    ),
+                    "pdb_path": str(snapshot_path),
+                }
+            )
+        assert state is not None
         output_pdb = destination / "short_md_final.pdb"
         with output_pdb.open("w") as handle:
             bundle.app.PDBFile.writeFile(
                 modeller.topology, state.getPositions(), handle, keepIds=True
             )
-        final = {
-            "stage": "short_md",
-            "step": config.md_steps,
-            "time_ps": config.md_steps * config.timestep_fs / 1_000.0,
-            "potential_kj_mol": float(
-                state.getPotentialEnergy().value_in_unit(
-                    bundle.unit.kilojoule_per_mole
-                )
-            ),
-        }
         return DynamicsResult(
-            "completed", output_pdb, minimized.snapshot_records + (final,)
+            "completed", output_pdb, minimized.snapshot_records + tuple(records)
         )
     except Exception as exc:
         return DynamicsResult(

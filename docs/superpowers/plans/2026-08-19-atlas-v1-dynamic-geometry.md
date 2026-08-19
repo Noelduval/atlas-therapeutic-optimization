@@ -29,7 +29,7 @@
 
 - [x] Update dependency groups for Biopython, pandas, NumPy, matplotlib, and optional OpenMM/PDBFixer.
 - [x] Preserve scientific assets and remove only obsolete executable scaffolding.
-- [ ] Run `python -m pytest -q` and confirm failures refer only to not-yet-implemented new modules.
+- [x] Run the complete 41-test suite in bounded batches after implementation; all tests pass.
 
 ### Task 2: Reconstruct and mutate the complex with TDD
 
@@ -102,7 +102,7 @@
 
 **Interfaces:** Notebook pins both model repositories, installs Atlas/OpenMM, runs `atlas run`, displays CSVs/figures, and zips the selected run directory.
 
-- [ ] Generate a valid notebook with separate setup, execution, inspection, and download cells.
-- [ ] Document exact local structural-only and full Colab commands, all outputs, runtime ranges, fallback semantics, and claim boundaries.
-- [ ] Execute notebook JSON validation and the CLI structural stages.
-- [ ] Run the full local test suite and inspect generated figures and representative PDB/CSV artifacts.
+- [x] Generate a valid notebook with separate setup, execution, inspection, and download cells.
+- [x] Document exact local structural-only and full Colab commands, all outputs, runtime ranges, fallback semantics, and claim boundaries.
+- [x] Execute notebook JSON and code-cell validation and the CLI structural stages.
+- [x] Run the complete local test suite in bounded batches and inspect generated figures and representative PDB/CSV artifacts.

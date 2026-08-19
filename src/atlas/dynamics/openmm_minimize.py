@@ -56,11 +56,14 @@ def _add_zinc_geometry_restraints(bundle, system, topology, positions, config) -
     force = bundle.openmm.HarmonicBondForce()
     zinc_position = positions[zinc_index]
     for index in targets:
-        distance = bundle.openmm.Vec3.distance(zinc_position, positions[index])
+        delta = (positions[index] - zinc_position).value_in_unit(
+            bundle.unit.nanometer
+        )
+        distance = sum(float(component) ** 2 for component in delta) ** 0.5
         force.addBond(
             zinc_index,
             index,
-            distance,
+            distance * bundle.unit.nanometer,
             config.zinc_restraint_k_kj_mol_nm2
             * bundle.unit.kilojoule_per_mole
             / bundle.unit.nanometer**2,
@@ -125,6 +128,7 @@ def minimize_variant(
         record = {
             "stage": "minimized",
             "step": 0,
+            "pdb_path": str(output_pdb),
             "initial_potential_kj_mol": float(
                 initial.value_in_unit(bundle.unit.kilojoule_per_mole)
             ),

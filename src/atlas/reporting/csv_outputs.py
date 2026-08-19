@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
+from importlib.metadata import PackageNotFoundError, version
 import json
 from pathlib import Path
 import platform
@@ -42,10 +43,17 @@ def write_provenance(
 ) -> Path:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
+    packages: dict[str, str] = {}
+    for package in ("atlas-therapeutic-optimization", "biopython", "numpy", "pandas", "matplotlib", "openmm", "torch"):
+        try:
+            packages[package] = version(package)
+        except PackageNotFoundError:
+            packages[package] = "not installed"
     payload: dict[str, object] = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "python": sys.version,
         "platform": platform.platform(),
+        "packages": packages,
         "input_structure": str(Path(input_path).resolve()),
         "input_sha256": sha256(input_path),
         "thermompnn_revision": THERMOMPNN_REVISION,

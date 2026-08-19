@@ -17,6 +17,7 @@ from atlas.stability.common import (
     normalized_row,
     require_columns,
     require_repository,
+    require_revision,
 )
 
 
@@ -48,6 +49,7 @@ class ThermoMPNNDRunner:
         output_dir: str | Path,
     ) -> pd.DataFrame:
         script = require_repository(self.repository, "v2_ssm.py", "ThermoMPNN-D")
+        require_revision(self.repository, THERMOMPNN_D_REVISION, "ThermoMPNN-D")
         pdb = Path(pdb_path).resolve()
         destination = Path(output_dir).resolve()
         destination.mkdir(parents=True, exist_ok=True)

@@ -53,11 +53,19 @@ def plot_catalytic_geometry(frame: pd.DataFrame, path: str | Path) -> Path:
     ]
     fig, axes = plt.subplots(1, len(columns), figsize=(5 * len(columns), 4.5), squeeze=False)
     for ax, column in zip(axes[0], columns):
-        ax.bar(frame["variant_id"], frame[column], color="#457b9d")
+        groups = [
+            group[column].dropna().astype(float).to_numpy()
+            for _, group in frame.groupby("variant_id", sort=False)
+        ]
+        labels = list(frame["variant_id"].drop_duplicates())
+        ax.boxplot(groups, tick_labels=labels, patch_artist=True)
+        for patch in ax.patches:
+            patch.set_facecolor("#457b9d")
+            patch.set_alpha(0.75)
         ax.set_title(column.replace("_", " "))
         ax.set_ylabel("Distance (Å)")
         ax.tick_params(axis="x", rotation=25)
-    fig.suptitle("Catalytic geometry (static or explicitly labeled fallback)")
+    fig.suptitle("Catalytic geometry distributions (static if dynamics unavailable)")
     return _save(fig, path)
 
 

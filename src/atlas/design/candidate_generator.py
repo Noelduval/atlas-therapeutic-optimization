@@ -36,6 +36,7 @@ def generate_candidates(
     validation: ValidationResult,
     *,
     cutoff_a: float = 8.0,
+    max_candidates: int = 24,
 ) -> tuple[Candidate, ...]:
     require_validation_pass(validation)
     structure = PDBParser(QUIET=True).get_structure("candidates", Path(pdb_path))
@@ -72,7 +73,8 @@ def generate_candidates(
                     "catalytic, coordinating, benchmark, Gly/Pro, and Cys sites excluded.",
                 )
             )
-    return tuple(sorted(candidates, key=lambda item: (item.distance_to_focus_a, item.position)))
+    ordered = sorted(candidates, key=lambda item: (item.distance_to_focus_a, item.position))
+    return tuple(ordered[:max_candidates])
 
 
 def candidate_table(candidates: tuple[Candidate, ...]) -> pd.DataFrame:

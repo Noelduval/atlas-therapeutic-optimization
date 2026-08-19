@@ -183,10 +183,14 @@ def _run_dynamics_stage(
     if completed:
         reference = completed.get("WT", static_reference)
         for variant_id, pdb_path in completed.items():
-            record = measure_geometry(pdb_path, reference, variant_id).csv_row()
             energies = snapshot_energy.get(variant_id, ({"stage": "final", "step": 0},))
-            final_energy = energies[-1]
-            snapshot_rows.append({"variant_id": variant_id, **final_energy, **record})
+            for snapshot in energies:
+                snapshot_path = Path(str(snapshot.get("pdb_path", pdb_path)))
+                record = measure_geometry(
+                    snapshot_path, reference, variant_id
+                ).csv_row()
+                snapshot_rows.append({"variant_id": variant_id, **snapshot, **record})
+            record = measure_geometry(pdb_path, reference, variant_id).csv_row()
             mask = summary["variant_id"] == variant_id
             for column, value in record.items():
                 summary.loc[mask, column] = value
@@ -257,7 +261,8 @@ def run_pipeline(
         validation.table, run_dir / "figures" / "validation_dashboard.png"
     )
     plot_catalytic_geometry(
-        geometry, run_dir / "figures" / "catalytic_geometry_boxplots.png"
+        snapshots if not snapshots.empty else geometry,
+        run_dir / "figures" / "catalytic_geometry_boxplots.png",
     )
     write_warnings(warnings, run_dir / "pipeline_warnings.md")
     require_validation_pass(validation)
@@ -328,7 +333,27 @@ def run_pipeline(
                 if column != "variant_id" and column in row and pd.notna(row[column]):
                     ranking_geometry.loc[variant_id, column] = row[column]
         ranking_geometry = ranking_geometry.reset_index()
-    ranking = rank_candidates(candidate_manifest, candidate_stability, ranking_geometry)
+    if not candidate_snapshots.empty:
+        dispersion = (
+            candidate_snapshots.groupby("variant_id")[[
+                "zn_scissile_oxygen_distance_a",
+                "substrate_pose_drift_a",
+            ]]
+            .std(ddof=0)
+            .fillna(0.0)
+            .sum(axis=1)
+            .rename("dynamic_geometry_dispersion_a")
+        )
+        ranking_geometry = ranking_geometry.merge(
+            dispersion, left_on="variant_id", right_index=True, how="left"
+        )
+    wt_geometry = geometry.set_index("variant_id").loc["WT"]
+    ranking = rank_candidates(
+        candidate_manifest,
+        candidate_stability,
+        ranking_geometry,
+        reference_geometry=wt_geometry,
+    )
     ranking.to_csv(run_dir / "novel_candidates_ranked.csv", index=False)
     top_dir = run_dir / "top_5_candidate_pdbs"
     top_dir.mkdir()

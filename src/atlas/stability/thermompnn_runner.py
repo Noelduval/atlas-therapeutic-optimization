@@ -17,6 +17,7 @@ from atlas.stability.common import (
     normalized_row,
     require_columns,
     require_repository,
+    require_revision,
 )
 
 
@@ -44,6 +45,7 @@ class ThermoMPNNRunner:
         script = require_repository(
             self.repository, "analysis/custom_inference.py", "ThermoMPNN"
         )
+        require_revision(self.repository, THERMOMPNN_REVISION, "ThermoMPNN")
         pdb = Path(pdb_path).resolve()
         destination = Path(output_dir).resolve()
         destination.mkdir(parents=True, exist_ok=True)

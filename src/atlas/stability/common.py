@@ -68,6 +68,23 @@ def require_repository(repo: Path, script: str, name: str) -> Path:
     return script_path
 
 
+def require_revision(repo: Path, expected: str, name: str) -> None:
+    """Reject a wrong Git checkout while permitting exported source archives."""
+    if not (repo / ".git").exists():
+        return
+    completed = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    actual = completed.stdout.strip()
+    if completed.returncode or actual != expected:
+        raise DependencyUnavailableError(
+            f"{name} must be checked out at {expected}; found {actual or 'unknown revision'}"
+        )
+
+
 def require_columns(frame: pd.DataFrame, required: set[str], name: str) -> None:
     missing = required.difference(frame.columns)
     if missing:

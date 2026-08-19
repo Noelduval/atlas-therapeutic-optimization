@@ -11,6 +11,7 @@ class DynamicsConfig:
     temperature_k: float = 300.0
     timestep_fs: float = 2.0
     md_steps: int = 5_000
+    snapshot_count: int = 10
     restraint_k_kj_mol_nm2: float = 1_000.0
     zinc_restraint_k_kj_mol_nm2: float = 2_000.0
     minimization_tolerance_kj_mol_nm: float = 10.0
