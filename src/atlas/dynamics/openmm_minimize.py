@@ -75,11 +75,16 @@ def _prepare_system(pdb_path: Path, config: DynamicsConfig, bundle):
     pdb = bundle.app.PDBFile(str(pdb_path))
     forcefield = bundle.app.ForceField("amber14-all.xml", "amber14/tip3pfb.xml")
     modeller = bundle.app.Modeller(pdb.topology, pdb.positions)
-    modeller.addHydrogens(forcefield)
+    # 23WN contains coordinate fragments of larger chains, not chemically
+    # terminated molecules. OpenMM's built-in hydrogen definitions add only
+    # hydrogens; force-field matching then deliberately ignores unresolved
+    # external peptide bonds without inventing caps, heavy atoms, or residues.
+    modeller.addHydrogens()
     system = forcefield.createSystem(
         modeller.topology,
         nonbondedMethod=bundle.app.NoCutoff,
         constraints=bundle.app.HBonds,
+        ignoreExternalBonds=True,
     )
     _add_position_restraints(
         bundle, system, modeller.topology, modeller.positions, config

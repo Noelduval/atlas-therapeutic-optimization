@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from Bio.PDB import PDBParser
+
 from atlas.dynamics.models import DynamicsConfig
-from atlas.dynamics.openmm_minimize import minimize_variant
+from atlas.dynamics.openmm_minimize import _load_openmm, _prepare_system, minimize_variant
 from atlas.dynamics.openmm_short_md import run_short_md
+from atlas.structure.reconstruct import reconstruct_active_like
 
 
 def test_minimization_dependency_failure_has_no_snapshots(
@@ -58,3 +62,27 @@ def test_short_md_propagates_minimization_skip(tmp_path: Path, monkeypatch) -> N
     result = run_short_md(tmp_path / "variant.pdb", tmp_path / "out", DynamicsConfig())
     assert result == skipped
     assert not list(tmp_path.glob("**/*.pdb"))
+
+
+def test_committed_coordinate_fragments_parameterize_without_new_heavy_atoms(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("openmm")
+    pdb_path = tmp_path / "active_like.pdb"
+    reconstruct_active_like(
+        Path("data/23WN.cif"), pdb_path, tmp_path / "numbering.csv"
+    )
+    source = PDBParser(QUIET=True).get_structure("source", pdb_path)
+    source_heavy = sum(1 for atom in source.get_atoms() if atom.element != "H")
+    source_residues = sum(1 for _ in source.get_residues())
+
+    bundle = _load_openmm()
+    modeller, system = _prepare_system(pdb_path, DynamicsConfig(), bundle)
+    topology_heavy = sum(
+        1
+        for atom in modeller.topology.atoms()
+        if atom.element is not None and atom.element.symbol != "H"
+    )
+    assert topology_heavy == source_heavy
+    assert modeller.topology.getNumResidues() == source_residues
+    assert system.getNumParticles() == modeller.topology.getNumAtoms()

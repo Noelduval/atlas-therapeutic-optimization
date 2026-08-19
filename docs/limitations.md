@@ -14,11 +14,13 @@
   overlap cannot be ruled out.
 - ThermoMPNN-D's pinned epistatic script uses CUDA. CPU-only environments cannot
   complete the required double-mutant score.
-- The 23WN fragments lack chemically completed termini, and zinc/substrate
-  parameterization is nontrivial. Standard OpenMM templates can reject this
-  system (locally, the truncated terminal ALA lacked the expected terminal OXT).
-  Atlas records that failure and uses static geometry; it does not call skipped
-  dynamics evidence stable.
+- The 23WN coordinates are fragments of larger chains and are not chemically
+  terminated molecules. Atlas uses OpenMM's documented fragment matching mode
+  (`ignoreExternalBonds=True`) and adds hydrogens without inventing heavy atoms,
+  caps, residues, or sequence. This permitted a local restrained minimization,
+  but it remains an approximation to unresolved external bonding and zinc/
+  substrate parameterization. Any future setup failure remains explicit and
+  does not count as favorable dynamics evidence.
 - Position and zinc restraints make comparisons more interpretable but can hide
   larger conformational changes. Ten-picosecond dynamics is not converged MD.
 - The composite ranking is an explicit heuristic rather than a learned catalytic

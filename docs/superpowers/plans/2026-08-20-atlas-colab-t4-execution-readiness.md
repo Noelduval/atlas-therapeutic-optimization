@@ -49,10 +49,10 @@
 
 **Interfaces:** `_prepare_system` adds hydrogens without fabricating heavy atoms and calls Amber template matching with `ignoreExternalBonds=True`.
 
-- [ ] Add a failing test that records the heavy-atom count and requires the committed fragment to parameterize or preserve the explicit skip result.
-- [ ] Run the test and reproduce the terminal ALA template failure.
-- [ ] Apply OpenMM's documented fragment matching option without adding caps, residues, or heavy atoms.
-- [ ] Run the real local minimization attempt and record whether it completes or the next exact scientific blocker.
+- [x] Add a failing test that records the heavy-atom count and requires the committed fragment to parameterize or preserve the explicit skip result.
+- [x] Run the test and reproduce the terminal ALA template failure.
+- [x] Apply OpenMM's documented fragment matching option without adding caps, residues, or heavy atoms.
+- [x] Run the real local minimization attempt; it completed after 50 test iterations with potential energy changing from 10,383.27 to -7,658.74 kJ/mol.
 
 ### Task 4: Branch-aware staged Colab notebook
 

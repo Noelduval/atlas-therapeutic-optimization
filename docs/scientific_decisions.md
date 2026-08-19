@@ -45,10 +45,14 @@ centroid drift ≤0.75 Å. Loss of a required functional atom is a regression, n
 an imputed favorable value.
 
 OpenMM uses standard Amber templates, heavy-atom position restraints, and
-explicit harmonic zinc-geometry restraints. Its purpose is short comparative
-screening. A failed system build produces `skipped_unparameterized_system`, the
-original exception, and zero snapshot rows. If real dynamic geometry exists it
-must also pass; otherwise the gate transparently falls back to static geometry.
+explicit harmonic zinc-geometry restraints. Because 23WN contains coordinate
+fragments of larger chains, hydrogens are added from OpenMM's built-in residue
+definitions and Amber matching uses the documented `ignoreExternalBonds=True`
+fragment mode. This does not add caps, heavy atoms, residues, or sequence. A
+heavy-atom/residue-count integration test protects that boundary. A failed
+system build still produces `skipped_unparameterized_system`, the original
+exception, and zero snapshot rows. If real dynamic geometry exists it must also
+pass; otherwise the gate transparently falls back to static geometry.
 
 ## Gate and design
 
