@@ -27,8 +27,8 @@
 
 **Interfaces:** The console script remains `atlas = atlas.cli:app`; `atlas --help` exposes `run`, `reconstruct`, and `validate`.
 
-- [ ] Update dependency groups for Biopython, pandas, NumPy, matplotlib, and optional OpenMM/PDBFixer.
-- [ ] Preserve scientific assets and remove only obsolete executable scaffolding.
+- [x] Update dependency groups for Biopython, pandas, NumPy, matplotlib, and optional OpenMM/PDBFixer.
+- [x] Preserve scientific assets and remove only obsolete executable scaffolding.
 - [ ] Run `python -m pytest -q` and confirm failures refer only to not-yet-implemented new modules.
 
 ### Task 2: Reconstruct and mutate the complex with TDD
@@ -37,11 +37,11 @@
 
 **Interfaces:** `dp622_to_deposited(int) -> int`; `deposited_to_dp622(int) -> int`; `reconstruct_active_like(Path, Path, Path) -> ReconstructionResult`; `apply_mutations(Path, tuple[Mutation, ...], Path) -> Path`; `build_known_mutants(Path, Path) -> pandas.DataFrame`.
 
-- [ ] Write literal numbering and committed-23WN reconstruction tests; run them and observe missing-module failures.
-- [ ] Implement extraction of A25-239, B34-41, zinc, Q120E, renumbering, mapping CSV, and invariant checks.
-- [ ] Write mutation tests for Y91F, D126A, H172A, and the double; observe failure.
-- [ ] Implement deterministic heavy-atom edits and known-mutant PDB/manifest output.
-- [ ] Run `python -m pytest tests/structure -q` and require all tests to pass.
+- [x] Write literal numbering and committed-23WN reconstruction tests; run them and observe missing-module failures.
+- [x] Implement extraction of A25-239, B34-41, zinc, Q120E, renumbering, mapping CSV, and invariant checks.
+- [x] Write mutation tests for Y91F, D126A, H172A, and the double; observe failure.
+- [x] Implement deterministic heavy-atom edits and known-mutant PDB/manifest output.
+- [x] Run `python -m pytest tests/structure -q` and require all tests to pass.
 
 ### Task 3: Geometry selectors and metrics with TDD
 
@@ -49,9 +49,9 @@
 
 **Interfaces:** `select_atom(structure, AtomSelector) -> Atom`; `measure_geometry(Path, Path | None = None) -> GeometryRecord`; `measure_many(dict[str, Path], Path, Path) -> pandas.DataFrame`.
 
-- [ ] Write tests with hand-calculated coordinates for distance, nearest oxygen, missing-atom warning, Kabsch RMSD, and committed-23WN scissile selector; observe failures.
-- [ ] Implement centralized selectors and finite/null metric serialization.
-- [ ] Run `python -m pytest tests/geometry -q` and require all tests to pass.
+- [x] Write tests with hand-calculated coordinates for distance, nearest oxygen, missing-atom warning, Kabsch RMSD, and committed-23WN scissile selector; observe failures.
+- [x] Implement centralized selectors and finite/null metric serialization.
+- [x] Run `python -m pytest tests/geometry -q` and require all tests to pass.
 
 ### Task 4: Real ThermoMPNN wrappers with TDD
 
