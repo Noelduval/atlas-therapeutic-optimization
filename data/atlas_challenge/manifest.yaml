@@ -27,7 +27,7 @@ assets:
     provenance: Supplementary Information downloaded from the article landing page.
   pdb_23wn:
     availability: AVAILABLE
-    local_path: references/structures/23WN.cif
+    local_path: data/23WN.cif
     source_url: https://files.rcsb.org/download/23WN.cif
     landing_page: https://www.rcsb.org/structure/23WN
     retrieved_on: "2026-08-13"

@@ -1,16 +1,20 @@
 [project]
 name = "atlas-therapeutic-optimization"
-version = "0.1.0"
-description = "Inspectable autonomous computational optimization for the VITA Aβ metalloprotease challenge."
+version = "1.0.0"
+description = "Validation-gated stability and catalytic-geometry screening for DP622 mutations."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "langgraph>=0.6,<2",
-  "pydantic>=2.11,<3",
-  "pyyaml>=6.0,<7",
-  "rich>=14,<15",
-  "streamlit>=1.48,<2",
+  "biopython>=1.85,<2",
+  "matplotlib>=3.9,<4",
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<3",
   "typer>=0.16,<1",
+]
+
+[project.optional-dependencies]
+dynamics = [
+  "openmm>=8.2,<9",
 ]
 
 [project.scripts]
