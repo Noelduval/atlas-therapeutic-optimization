@@ -59,9 +59,9 @@
 
 **Interfaces:** `ThermoMPNNRunner.run(Path, Sequence[Variant]) -> DataFrame`; `ThermoMPNNDRunner.run(Path, Sequence[Variant]) -> DataFrame`; both raise `DependencyUnavailableError` or `ScientificOutputError` on invalid execution.
 
-- [ ] Write subprocess-boundary tests for missing repository, nonzero exit, missing CSV columns, missing requested mutation, and normalized real-shaped output; observe failures.
-- [ ] Implement pinned-revision metadata, CLI commands, CSV schema validation, and stability-only interpretations.
-- [ ] Run `python -m pytest tests/stability -q` and require all tests to pass.
+- [x] Write subprocess-boundary tests for missing repository, nonzero exit, missing CSV columns, missing requested mutation, and normalized real-shaped output; observe failures.
+- [x] Implement pinned-revision metadata, CLI commands, CSV schema validation, and stability-only interpretations.
+- [x] Run `python -m pytest tests/stability -q` and require all tests to pass.
 
 ### Task 5: OpenMM attempt and honest fallback with TDD
 
@@ -69,9 +69,9 @@
 
 **Interfaces:** `minimize_variant(Path, Path, DynamicsConfig) -> DynamicsResult`; `run_short_md(Path, Path, DynamicsConfig) -> DynamicsResult`; result status is `completed`, `skipped_dependency_unavailable`, or `skipped_unparameterized_system`.
 
-- [ ] Write tests proving dependency and parameterization failures produce empty snapshot records plus warnings; observe failures.
-- [ ] Implement lazy OpenMM imports, restrained setup, deterministic seeds, snapshot output, and exception-preserving fallback.
-- [ ] Run `python -m pytest tests/dynamics -q` and require all tests to pass.
+- [x] Write tests proving dependency and parameterization failures produce empty snapshot records plus warnings; observe failures.
+- [x] Implement lazy OpenMM imports, restrained setup, deterministic seeds, snapshot output, and exception-preserving fallback.
+- [x] Run `python -m pytest tests/dynamics -q` and require all tests to pass.
 
 ### Task 6: Validation gate and design exclusion with TDD
 
@@ -79,11 +79,11 @@
 
 **Interfaces:** `evaluate_validation(stability, geometry, dynamics) -> ValidationResult`; `require_validation_pass(result) -> None`; `generate_candidates(structure, validation) -> tuple[Candidate, ...]`; `rank_candidates(...) -> DataFrame`.
 
-- [ ] Write table-driven tests for full pass, each beneficial failure, harmful separation failure, and unavailable dynamics; observe failures.
-- [ ] Implement the fixed thresholds and Markdown/CSV validation report.
-- [ ] Write tests proving E96, zinc ligands, benchmark mutations, and pre-gate calls are excluded; observe failures.
-- [ ] Implement interpretable single candidates, conditional doubles, and no-score-no-ranking behavior.
-- [ ] Run `python -m pytest tests/validation tests/design -q` and require all tests to pass.
+- [x] Write table-driven tests for full pass, each beneficial failure, harmful separation failure, and unavailable dynamics; observe failures.
+- [x] Implement the fixed thresholds and Markdown/CSV validation report.
+- [x] Write tests proving E96, zinc ligands, benchmark mutations, and pre-gate calls are excluded; observe failures.
+- [x] Implement interpretable single candidates and no-score-no-ranking behavior. Conditional doubles remain intentionally deferred until real passing singles exist.
+- [x] Run `python -m pytest tests/validation tests/design -q` and require all tests to pass.
 
 ### Task 7: Pipeline, reporting, CLI, and hard-stop integration
 

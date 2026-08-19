@@ -1,0 +1,108 @@
+"""Official ThermoMPNN-D epistatic double-mutant inference adapter."""
+
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+from typing import Sequence
+
+import pandas as pd
+
+from atlas.stability.common import (
+    CommandRunner,
+    ScientificOutputError,
+    StabilityVariant,
+    default_command_runner,
+    normalized_frame,
+    normalized_row,
+    require_columns,
+    require_repository,
+)
+
+
+THERMOMPNN_D_REVISION = "df9a75aaddb674a7c4c193005031fc0536d325fb"
+
+
+def _canonical_double(label: str) -> tuple[str, ...]:
+    return tuple(sorted(label.replace(";", ":").split(":")))
+
+
+class ThermoMPNNDRunner:
+    """Run official epistatic inference with an inclusive output threshold."""
+
+    def __init__(
+        self,
+        repository: str | Path,
+        *,
+        command_runner: CommandRunner = default_command_runner,
+        distance_cutoff_a: float = 12.0,
+    ) -> None:
+        self.repository = Path(repository)
+        self.command_runner = command_runner
+        self.distance_cutoff_a = distance_cutoff_a
+
+    def run(
+        self,
+        pdb_path: str | Path,
+        variants: Sequence[StabilityVariant],
+        output_dir: str | Path,
+    ) -> pd.DataFrame:
+        script = require_repository(self.repository, "v2_ssm.py", "ThermoMPNN-D")
+        pdb = Path(pdb_path).resolve()
+        destination = Path(output_dir).resolve()
+        destination.mkdir(parents=True, exist_ok=True)
+        prefix = destination / "thermompnn_d_epistatic"
+        command = [
+            sys.executable,
+            str(script),
+            "--mode",
+            "epistatic",
+            "--pdb",
+            str(pdb),
+            "--chains",
+            "A",
+            "--threshold",
+            "100",
+            "--distance",
+            str(self.distance_cutoff_a),
+            "--out",
+            str(prefix),
+        ]
+        completed = self.command_runner(command, cwd=self.repository)
+        if completed.returncode:
+            detail = (completed.stderr or completed.stdout or "unknown error").strip()
+            if "cuda" in detail.lower():
+                detail += " (the pinned official epistatic implementation requires a CUDA GPU)"
+            raise ScientificOutputError(f"ThermoMPNN-D inference failed: {detail}")
+
+        csv_path = prefix.with_suffix(".csv")
+        if not csv_path.is_file():
+            raise ScientificOutputError(
+                f"ThermoMPNN-D completed without expected output {csv_path}"
+            )
+        frame = pd.read_csv(csv_path)
+        require_columns(frame, {"ddG (kcal/mol)", "Mutation"}, "ThermoMPNN-D")
+        lookup = {
+            _canonical_double(str(row["Mutation"])): float(row["ddG (kcal/mol)"])
+            for _, row in frame.iterrows()
+        }
+        rows: list[dict[str, object]] = []
+        for variant in variants:
+            key = _canonical_double(variant.mutation_set)
+            if len(key) != 2:
+                raise ScientificOutputError(
+                    f"ThermoMPNN-D epistatic adapter requires two mutations: {variant.mutation_set}"
+                )
+            if key not in lookup:
+                raise ScientificOutputError(
+                    f"ThermoMPNN-D output does not contain requested mutation {variant.mutation_set}; "
+                    f"verify the {self.distance_cutoff_a:g} Å pair cutoff"
+                )
+            rows.append(
+                normalized_row(
+                    variant, "ThermoMPNN-D epistatic", lookup[key]
+                )
+            )
+        result = normalized_frame(rows)
+        result.to_csv(destination / "thermompnn_d_scores_normalized.csv", index=False)
+        return result
