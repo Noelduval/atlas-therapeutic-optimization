@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
+import subprocess
+import sys
+from types import SimpleNamespace
 
 from atlas.colab import build_stage_command
 
@@ -72,3 +76,73 @@ def test_notebook_configuration_and_stage_cells_are_executable() -> None:
     for index, cell in enumerate(notebook["cells"]):
         if cell["cell_type"] == "code":
             compile("".join(cell["source"]), f"notebook-cell-{index}", "exec")
+
+
+def test_notebook_install_is_importable_without_kernel_restart(
+    tmp_path: Path,
+) -> None:
+    """Catch editable installs whose new .pth is invisible to a live kernel."""
+
+    notebook = json.loads(Path("notebooks/Atlas_DP622_Colab.ipynb").read_text())
+    setup_cell = next(
+        cell
+        for cell in notebook["cells"]
+        if "repository-setup" in cell.get("metadata", {}).get("tags", [])
+    )
+    tree = ast.parse("".join(setup_cell["source"]))
+    pip_arguments = next(
+        node.args[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.args[0] if node.args else None, ast.List)
+        and any(
+            isinstance(element, ast.Constant) and element.value == "pip"
+            for element in node.args[0].elts
+        )
+    )
+
+    package = tmp_path / "package"
+    (package / "src" / "atlas").mkdir(parents=True)
+    (package / "src" / "atlas" / "__init__.py").write_text("")
+    (package / "src" / "atlas" / "colab.py").write_text("READY = True\n")
+    (package / "setup.py").write_text(
+        "from setuptools import setup\n"
+        "setup(name='atlas-clean-kernel-test', version='1', "
+        "package_dir={'': 'src'}, packages=['atlas'], "
+        "extras_require={'dynamics': []})\n"
+    )
+    arguments = eval(
+        compile(ast.Expression(pip_arguments), "notebook-pip-command", "eval"),
+        {
+            "ATLAS_DIR": package,
+            "sys": SimpleNamespace(executable=sys.executable),
+        },
+    )
+    package_index = next(
+        index
+        for index, value in enumerate(arguments)
+        if str(value).startswith(str(package))
+    )
+    command = arguments[: package_index + 1]
+    target = tmp_path / "site-packages"
+    install_index = command.index("install") + 1
+    command[install_index:install_index] = [
+        "--quiet",
+        "--no-deps",
+        "--target",
+        str(target),
+    ]
+    driver = (
+        "import subprocess, sys\n"
+        f"sys.path.insert(0, {str(target)!r})\n"
+        f"subprocess.run({command!r}, check=True)\n"
+        "from atlas.colab import READY\n"
+        "assert READY is True\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-S", "-c", driver],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+    )
+    assert completed.returncode == 0, completed.stderr
