@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import subprocess
-import sys
 from typing import Mapping, Sequence
 
 import pandas as pd
@@ -20,21 +18,10 @@ from atlas.stability.common import (
     require_repository,
     require_revision,
 )
+from atlas.stability.upstream_execution import UpstreamPythonExecution
 
 
 THERMOMPNN_REVISION = "2b04fd370e399911b1fa5848112cc9013f084110"
-
-
-def thermompnn_import_environment(repository: Path) -> dict[str, str]:
-    """Put ThermoMPNN's local modules before installed packages."""
-
-    environment = dict(os.environ)
-    existing = environment.get("PYTHONPATH")
-    entries = [str(repository.resolve())]
-    if existing:
-        entries.append(existing)
-    environment["PYTHONPATH"] = os.pathsep.join(entries)
-    return environment
 
 
 def _run_thermompnn_command(
@@ -72,23 +59,22 @@ class ThermoMPNNRunner:
             self.repository, "analysis/custom_inference.py", "ThermoMPNN"
         )
         require_revision(self.repository, THERMOMPNN_REVISION, "ThermoMPNN")
+        execution = UpstreamPythonExecution.create(self.repository, script)
         pdb = Path(pdb_path).resolve()
         destination = Path(output_dir).resolve()
         destination.mkdir(parents=True, exist_ok=True)
-        command = [
-            sys.executable,
-            str(script),
+        command = execution.script_command([
             "--pdb",
             str(pdb),
             "--chain",
             "A",
             "--out_dir",
             str(destination),
-        ]
+        ])
         completed = self.command_runner(
             command,
-            cwd=self.repository,
-            env=thermompnn_import_environment(self.repository),
+            cwd=execution.cwd,
+            env=execution.environment(),
         )
         if completed.returncode:
             detail = (completed.stderr or completed.stdout or "unknown error").strip()

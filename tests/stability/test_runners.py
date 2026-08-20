@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import subprocess
+import sys
 
 import pandas as pd
 import pytest
@@ -175,3 +177,41 @@ def test_thermompnn_d_normalizes_double_output(tmp_path: Path) -> None:
     assert scores.loc[0, "model_used"] == "ThermoMPNN-D epistatic"
     assert scores.loc[0, "predicted_ddg_or_score"] == pytest.approx(1.7)
     assert scores.loc[0, "mutation_set"] == "Y91F:D126A"
+
+
+def test_thermompnn_d_uses_checkout_first_preserved_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path, "v2_ssm.py")
+    conflicting = tmp_path / "site-packages"
+    conflicting.mkdir()
+    monkeypatch.setenv("PYTHONPATH", str(conflicting))
+    monkeypatch.setenv("ATLAS_UPSTREAM_SENTINEL", "preserved")
+    captured: dict[str, object] = {}
+
+    def succeed(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        prefix = Path(command[command.index("--out") + 1])
+        prefix.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(
+            [{"ddG (kcal/mol)": 1.7, "Mutation": "Y91F:D126A"}]
+        ).to_csv(prefix.with_suffix(".csv"), index=False)
+        return subprocess.CompletedProcess(command, 0, "ok", "")
+
+    ThermoMPNNDRunner(repo, command_runner=succeed).run(
+        tmp_path / "input.pdb", [DOUBLE], tmp_path / "scores"
+    )
+
+    environment = captured["env"]
+    assert isinstance(environment, dict)
+    assert environment["ATLAS_UPSTREAM_SENTINEL"] == "preserved"
+    assert environment["PYTHONPATH"].split(os.pathsep) == [
+        str(repo.resolve()),
+        str(conflicting),
+    ]
+    assert captured["cwd"] == repo.resolve()
+    assert captured["command"][:2] == [
+        sys.executable,
+        str((repo / "v2_ssm.py").resolve()),
+    ]

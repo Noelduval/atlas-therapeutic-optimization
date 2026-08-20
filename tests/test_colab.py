@@ -154,6 +154,98 @@ def test_notebook_install_is_importable_without_kernel_restart(
     assert completed.returncode == 0, completed.stderr
 
 
+def test_notebook_activation_replaces_stale_installed_atlas_modules(
+    tmp_path: Path,
+) -> None:
+    """Reproduce reinstalling Atlas after an older module is cached in Colab."""
+
+    notebook = json.loads(Path("notebooks/Atlas_DP622_Colab.ipynb").read_text())
+    activation_cells = [
+        cell
+        for cell in notebook["cells"]
+        if "activate-atlas-install" in cell.get("metadata", {}).get("tags", [])
+    ]
+    assert len(activation_cells) == 1
+    activation_source = "".join(activation_cells[0]["source"])
+    setup_cell = next(
+        cell
+        for cell in notebook["cells"]
+        if "repository-setup" in cell.get("metadata", {}).get("tags", [])
+    )
+    setup_tree = ast.parse("".join(setup_cell["source"]))
+    reinstall_list = next(
+        node
+        for node in ast.walk(setup_tree)
+        if isinstance(node, ast.List)
+        and any(
+            isinstance(element, ast.Constant)
+            and element.value == "--force-reinstall"
+            for element in node.elts
+        )
+    )
+
+    single, double, output = _readiness_fixture(tmp_path)
+    repository = Path.cwd().resolve()
+    installed = tmp_path / "site-packages"
+    stale_package = installed / "atlas"
+    stale_package.mkdir(parents=True)
+    (stale_package / "__init__.py").write_text("__version__ = 'stale'\n")
+    (stale_package / "colab.py").write_text(
+        "STALE = True\n"
+        "def validate_colab_readiness(**kwargs):\n"
+        "    raise RuntimeError('stale Atlas readiness executed')\n"
+    )
+    reinstall_command = eval(
+        compile(ast.Expression(reinstall_list), "notebook-atlas-reinstall", "eval"),
+        {"ATLAS_DIR": repository, "sys": SimpleNamespace(executable=sys.executable)},
+    )
+    install_index = reinstall_command.index("install") + 1
+    reinstall_command[install_index:install_index] = [
+        "--upgrade",
+        "--target",
+        str(installed),
+    ]
+    driver = (
+        "import os\n"
+        "from pathlib import Path\n"
+        "import subprocess\n"
+        "import sys\n"
+        f"installed = Path({str(installed)!r})\n"
+        "sys.path.insert(0, str(installed))\n"
+        "os.environ['PYTHONPATH'] = os.pathsep.join([\n"
+        "    str(installed), os.environ.get('PYTHONPATH', '')\n"
+        "]).rstrip(os.pathsep)\n"
+        "import atlas.colab as stale\n"
+        "assert stale.STALE is True\n"
+        f"subprocess.run({reinstall_command!r}, check=True)\n"
+        f"ATLAS_DIR = Path({str(repository)!r})\n"
+        f"ATLAS_SHA = {'test-current-checkout'!r}\n"
+        f"exec({activation_source!r})\n"
+        "import atlas.colab as current\n"
+        "assert not hasattr(current, 'STALE')\n"
+        "assert hasattr(current, '_bootstrap_probe_command')\n"
+        "report = current.validate_colab_readiness(\n"
+        "    python_executable=sys.executable,\n"
+        f"    atlas_repo=Path({str(repository)!r}),\n"
+        f"    input_structure=Path({str(repository / 'data/23WN.cif')!r}),\n"
+        f"    thermompnn_repo=Path({str(single)!r}),\n"
+        f"    thermompnn_d_repo=Path({str(double)!r}),\n"
+        f"    output_root=Path({str(output)!r}),\n"
+        f"    run_dir=Path({str(output / 'new-run')!r}),\n"
+        "    required_modules=('atlas', 'atlas.cli', 'atlas.colab'),\n"
+        ")\n"
+        "assert report['thermompnn_imports'] == 'passed'\n"
+        "assert report['thermompnn_d_imports'] == 'passed'\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", driver],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
 def test_normal_install_can_run_structure_checkpoint_from_checkout(
     tmp_path: Path,
 ) -> None:
@@ -400,6 +492,38 @@ def test_colab_readiness_prefers_thermompnn_checkout_over_installed_datasets(
     )
 
     assert report["thermompnn_imports"] == "passed"
+
+
+def test_colab_readiness_uses_thermompnn_d_checkout_first_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    single, double, output = _readiness_fixture(tmp_path)
+    repository = Path.cwd().resolve()
+    conflicting = tmp_path / "site-packages"
+    conflicting.mkdir()
+    monkeypatch.setenv("PYTHONPATH", str(conflicting))
+    (double / "v2_ssm.py").write_text(
+        "import os\n"
+        "from pathlib import Path\n"
+        "expected = str(Path(__file__).resolve().parent)\n"
+        "actual = os.environ.get('PYTHONPATH', '').split(os.pathsep)[0]\n"
+        "if actual != expected:\n"
+        "    raise RuntimeError(f'checkout is not first: {actual!r} != {expected!r}')\n"
+        "from thermompnn.datasets.dataset_utils import Mutation\n"
+    )
+
+    report = colab.validate_colab_readiness(
+        python_executable=sys.executable,
+        atlas_repo=repository,
+        input_structure=repository / "data/23WN.cif",
+        thermompnn_repo=single,
+        thermompnn_d_repo=double,
+        output_root=output,
+        run_dir=output / "new-run",
+        required_modules=("atlas", "atlas.cli", "atlas.colab"),
+    )
+
+    assert report["thermompnn_d_imports"] == "passed"
 
 
 def test_colab_readiness_rejects_wrong_thermompnn_datasets_source(

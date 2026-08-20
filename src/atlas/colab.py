@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from typing import Mapping, Sequence
 
-from atlas.stability.thermompnn_runner import thermompnn_import_environment
+from atlas.stability.upstream_execution import UpstreamPythonExecution
 
 
 class StageExecutionError(RuntimeError):
@@ -227,8 +227,7 @@ def _probe_command(
 
 
 def _bootstrap_probe_command(
-    python: Path,
-    script: Path,
+    execution: UpstreamPythonExecution,
     expected_module: str,
     expected_file: Path,
     required_symbol: str,
@@ -239,7 +238,7 @@ def _bootstrap_probe_command(
         "from pathlib import Path\n"
         "import runpy\n"
         "import sys\n"
-        f"script = Path({str(script)!r}).resolve()\n"
+        f"script = Path({str(execution.script)!r}).resolve()\n"
         "sys.path[0] = str(script.parent)\n"
         "runpy.run_path(str(script), run_name='_atlas_readiness_bootstrap')\n"
         f"module = importlib.import_module({expected_module!r})\n"
@@ -255,7 +254,7 @@ def _bootstrap_probe_command(
         "OmegaConf.merge(*(OmegaConf.load(path) for path in configs))\n"
         "print(f'Bootstrap imported {module.__name__} from {actual}')\n"
     )
-    return [str(python), "-c", probe]
+    return execution.python_command(["-c", probe])
 
 
 def validate_colab_readiness(
@@ -391,28 +390,34 @@ def validate_colab_readiness(
             errors,
         )
         if (single / "analysis/custom_inference.py").is_file():
-            single_script = single / "analysis/custom_inference.py"
+            single_execution = UpstreamPythonExecution.create(
+                single,
+                "analysis/custom_inference.py",
+                python_executable=python,
+            )
             thermompnn_import_probe = _probe_command(
                 "ThermoMPNN inference bootstrap",
                 _bootstrap_probe_command(
-                    python,
-                    single_script,
+                    single_execution,
                     "datasets",
                     single / "datasets.py",
                     "Mutation",
                     (single / "local.yaml",),
                 ),
-                single,
+                single_execution.cwd,
                 errors,
-                environment=thermompnn_import_environment(single),
+                environment=single_execution.environment(),
             )
         if (double / "v2_ssm.py").is_file():
-            double_script = double / "v2_ssm.py"
+            double_execution = UpstreamPythonExecution.create(
+                double,
+                "v2_ssm.py",
+                python_executable=python,
+            )
             thermompnn_d_import_probe = _probe_command(
                 "ThermoMPNN-D inference bootstrap",
                 _bootstrap_probe_command(
-                    python,
-                    double_script,
+                    double_execution,
                     "thermompnn.datasets.dataset_utils",
                     double / "thermompnn/datasets/dataset_utils.py",
                     "Mutation",
@@ -421,8 +426,9 @@ def validate_colab_readiness(
                         double / "examples/configs/epistatic.yaml",
                     ),
                 ),
-                double,
+                double_execution.cwd,
                 errors,
+                environment=double_execution.environment(),
             )
 
     if errors:

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-from typing import Sequence
+import subprocess
+from typing import Mapping, Sequence
 
 import pandas as pd
 
@@ -12,16 +12,29 @@ from atlas.stability.common import (
     CommandRunner,
     ScientificOutputError,
     StabilityVariant,
-    default_command_runner,
     normalized_frame,
     normalized_row,
     require_columns,
     require_repository,
     require_revision,
 )
+from atlas.stability.upstream_execution import UpstreamPythonExecution
 
 
 THERMOMPNN_D_REVISION = "df9a75aaddb674a7c4c193005031fc0536d325fb"
+
+
+def _run_thermompnn_d_command(
+    command: Sequence[str], *, cwd: Path, env: Mapping[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        list(command),
+        cwd=cwd,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 def _canonical_double(label: str) -> tuple[str, ...]:
@@ -35,7 +48,7 @@ class ThermoMPNNDRunner:
         self,
         repository: str | Path,
         *,
-        command_runner: CommandRunner = default_command_runner,
+        command_runner: CommandRunner = _run_thermompnn_d_command,
         distance_cutoff_a: float = 12.0,
     ) -> None:
         self.repository = Path(repository)
@@ -50,13 +63,12 @@ class ThermoMPNNDRunner:
     ) -> pd.DataFrame:
         script = require_repository(self.repository, "v2_ssm.py", "ThermoMPNN-D")
         require_revision(self.repository, THERMOMPNN_D_REVISION, "ThermoMPNN-D")
+        execution = UpstreamPythonExecution.create(self.repository, script)
         pdb = Path(pdb_path).resolve()
         destination = Path(output_dir).resolve()
         destination.mkdir(parents=True, exist_ok=True)
         prefix = destination / "thermompnn_d_epistatic"
-        command = [
-            sys.executable,
-            str(script),
+        command = execution.script_command([
             "--mode",
             "epistatic",
             "--pdb",
@@ -69,8 +81,12 @@ class ThermoMPNNDRunner:
             str(self.distance_cutoff_a),
             "--out",
             str(prefix),
-        ]
-        completed = self.command_runner(command, cwd=self.repository)
+        ])
+        completed = self.command_runner(
+            command,
+            cwd=execution.cwd,
+            env=execution.environment(),
+        )
         if completed.returncode:
             detail = (completed.stderr or completed.stdout or "unknown error").strip()
             if "cuda" in detail.lower():
