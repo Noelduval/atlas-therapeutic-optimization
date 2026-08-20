@@ -47,8 +47,16 @@ git clone https://github.com/Kuhlman-Lab/ThermoMPNN.git .external/ThermoMPNN
 git -C .external/ThermoMPNN checkout 2b04fd370e399911b1fa5848112cc9013f084110
 git clone https://github.com/Kuhlman-Lab/ThermoMPNN-D.git .external/ThermoMPNN-D
 git -C .external/ThermoMPNN-D checkout df9a75aaddb674a7c4c193005031fc0536d325fb
-python -m pip install omegaconf wandb pytorch-lightning scipy scikit-learn joblib
+python -m pip install omegaconf wandb pytorch-lightning scipy scikit-learn joblib tqdm torchmetrics
 ```
+
+Both pinned upstream repositories ship `platform.thermompnn_dir` values for the
+authors' machines. Their model constructors use that documented local setting
+to locate the committed ProteinMPNN weights. The Colab wrapper changes only
+that path in each checkout's `local.yaml` to the exact Colab checkout directory;
+it does not modify model code, weights, inference arguments, or Git `HEAD`.
+`atlas.colab.validate_colab_readiness` verifies both configured paths and all
+required weight files before reconstruction begins.
 
 Confirm that the active Python environment sees CUDA before the full run:
 
@@ -59,7 +67,7 @@ python -c 'import torch; print(torch.__version__, torch.cuda.is_available())'
 Exact full command:
 
 ```bash
-atlas run --input data/23WN.cif --output-root outputs --thermompnn-repo .external/ThermoMPNN --thermompnn-d-repo .external/ThermoMPNN-D --dynamics-mode minimize
+atlas run --input data/23WN.cif --output-root outputs --atlas-repo . --thermompnn-repo .external/ThermoMPNN --thermompnn-d-repo .external/ThermoMPNN-D --dynamics-mode minimize
 ```
 
 Use `--dynamics-mode short-md` for restrained 10 ps dynamics or
@@ -86,6 +94,11 @@ model CSVs and scientific outputs survive a Colab runtime restart. Each model
 stage runs in its own process, and the candidate stage reuses the genuine
 ThermoMPNN exhaustive single-mutant CSV produced before validation. No Rosetta
 license, Docker image, premium Colab tier, or separate cloud VM is required.
+Before Stage 3, the notebook executes the installed Atlas imports and CLI, both
+upstream inference-script imports, repository/model layout checks, and a real
+checkpoint-directory write probe. Every later CLI failure prints its exact
+command, working directory, complete stdout/stderr, safe environment context,
+and a next action before stopping.
 
 ## Expected runtime
 

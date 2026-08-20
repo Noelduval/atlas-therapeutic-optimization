@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 
 from atlas.pipeline import PipelineConfig
-from atlas.run_context import RunContext, RunContextError, prepare_run_directory
+from atlas.run_context import (
+    RunContext,
+    RunContextError,
+    build_run_context,
+    prepare_run_directory,
+)
 
 
 def _context(input_sha: str = "1" * 64) -> RunContext:
@@ -47,3 +52,14 @@ def test_resume_requires_explicit_run_id(tmp_path: Path) -> None:
         prepare_run_directory(
             PipelineConfig(output_root=tmp_path, resume=True), _context()
         )
+
+
+def test_run_context_resolves_atlas_commit_from_explicit_checkout() -> None:
+    repository = Path.cwd().resolve()
+    context = build_run_context(
+        PipelineConfig(
+            input_structure=repository / "data/23WN.cif",
+            atlas_repo=repository,
+        )
+    )
+    assert len(context.atlas_commit) == 40

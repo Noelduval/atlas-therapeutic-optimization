@@ -44,6 +44,7 @@ from atlas.validation.validation_gate import (
 class PipelineConfig:
     input_structure: Path = Path("data/23WN.cif")
     output_root: Path = Path("outputs")
+    atlas_repo: Path = Path(".")
     run_id: str | None = None
     thermompnn_repo: Path = Path(".external/ThermoMPNN")
     thermompnn_d_repo: Path = Path(".external/ThermoMPNN-D")

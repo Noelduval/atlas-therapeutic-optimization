@@ -24,6 +24,7 @@ class RunContextError(RuntimeError):
 class RunConfig(Protocol):
     input_structure: Path
     output_root: Path
+    atlas_repo: Path
     run_id: str | None
     dynamics_mode: str
     resume: bool
@@ -48,8 +49,8 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _atlas_commit() -> str:
-    repository = Path(__file__).resolve().parents[2]
+def _atlas_commit(repository: Path) -> str:
+    repository = repository.resolve()
     completed = subprocess.run(
         ["git", "-C", str(repository), "rev-parse", "HEAD"],
         text=True,
@@ -70,7 +71,7 @@ def build_run_context(config: RunConfig) -> RunContext:
         raise FileNotFoundError(f"23WN input does not exist: {input_path}")
     return RunContext(
         schema_version=1,
-        atlas_commit=_atlas_commit(),
+        atlas_commit=_atlas_commit(Path(config.atlas_repo)),
         input_sha256=_sha256(input_path),
         thermompnn_commit=THERMOMPNN_REVISION,
         thermompnn_d_commit=THERMOMPNN_D_REVISION,

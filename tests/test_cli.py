@@ -54,6 +54,8 @@ def test_run_can_stop_after_structure_and_resume_without_models(tmp_path: Path) 
         "data/23WN.cif",
         "--output-root",
         str(tmp_path),
+        "--atlas-repo",
+        str(Path.cwd()),
         "--run-id",
         "colab-checkpoint",
         "--dynamics-mode",

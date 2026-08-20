@@ -115,6 +115,9 @@ def run(
     output_root: Annotated[
         Path, typer.Option(help="Parent for fresh, non-overwriting run directories.")
     ] = Path("outputs"),
+    atlas_repo: Annotated[
+        Path, typer.Option(help="Atlas Git checkout used for commit provenance.")
+    ] = Path("."),
     thermompnn_repo: Annotated[
         Path, typer.Option(help="Pinned official ThermoMPNN repository.")
     ] = Path(".external/ThermoMPNN"),
@@ -146,6 +149,7 @@ def run(
             PipelineConfig(
                 input_structure=input_path,
                 output_root=output_root,
+                atlas_repo=atlas_repo,
                 thermompnn_repo=thermompnn_repo,
                 thermompnn_d_repo=thermompnn_d_repo,
                 dynamics_mode=dynamics_mode,

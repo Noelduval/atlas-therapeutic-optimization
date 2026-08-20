@@ -95,8 +95,8 @@ git clone https://github.com/Kuhlman-Lab/ThermoMPNN.git .external/ThermoMPNN
 git -C .external/ThermoMPNN checkout 2b04fd370e399911b1fa5848112cc9013f084110
 git clone https://github.com/Kuhlman-Lab/ThermoMPNN-D.git .external/ThermoMPNN-D
 git -C .external/ThermoMPNN-D checkout df9a75aaddb674a7c4c193005031fc0536d325fb
-python -m pip install omegaconf wandb pytorch-lightning scipy scikit-learn joblib
-atlas run --input data/23WN.cif --output-root outputs --thermompnn-repo .external/ThermoMPNN --thermompnn-d-repo .external/ThermoMPNN-D --dynamics-mode minimize
+python -m pip install omegaconf wandb pytorch-lightning scipy scikit-learn joblib tqdm torchmetrics
+atlas run --input data/23WN.cif --output-root outputs --atlas-repo . --thermompnn-repo .external/ThermoMPNN --thermompnn-d-repo .external/ThermoMPNN-D --dynamics-mode minimize
 ```
 
 ThermoMPNN-D's pinned epistatic path currently requires CUDA. Missing repos,
