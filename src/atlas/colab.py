@@ -226,6 +226,38 @@ def _probe_command(
     return "passed"
 
 
+def _bootstrap_probe_command(
+    python: Path,
+    script: Path,
+    expected_module: str,
+    expected_file: Path,
+    required_symbol: str,
+    configuration_files: Sequence[Path],
+) -> list[str]:
+    probe = (
+        "import importlib\n"
+        "from pathlib import Path\n"
+        "import runpy\n"
+        "import sys\n"
+        f"script = Path({str(script)!r}).resolve()\n"
+        "sys.path[0] = str(script.parent)\n"
+        "runpy.run_path(str(script), run_name='_atlas_readiness_bootstrap')\n"
+        f"module = importlib.import_module({expected_module!r})\n"
+        "actual = Path(module.__file__).resolve()\n"
+        f"expected = Path({str(expected_file)!r}).resolve()\n"
+        "if actual != expected:\n"
+        "    raise ImportError(\n"
+        f"        {expected_module!r} + f' resolved from {{actual}}; expected {{expected}}'\n"
+        "    )\n"
+        f"getattr(module, {required_symbol!r})\n"
+        "from omegaconf import OmegaConf\n"
+        f"configs = {[str(path) for path in configuration_files]!r}\n"
+        "OmegaConf.merge(*(OmegaConf.load(path) for path in configs))\n"
+        "print(f'Bootstrap imported {module.__name__} from {actual}')\n"
+    )
+    return [str(python), "-c", probe]
+
+
 def validate_colab_readiness(
     *,
     python_executable: str | Path,
@@ -359,17 +391,36 @@ def validate_colab_readiness(
             errors,
         )
         if (single / "analysis/custom_inference.py").is_file():
+            single_script = single / "analysis/custom_inference.py"
             thermompnn_import_probe = _probe_command(
-                "ThermoMPNN inference import",
-                [str(python), str(single / "analysis/custom_inference.py"), "--help"],
+                "ThermoMPNN inference bootstrap",
+                _bootstrap_probe_command(
+                    python,
+                    single_script,
+                    "datasets",
+                    single / "datasets.py",
+                    "Mutation",
+                    (single / "local.yaml",),
+                ),
                 single,
                 errors,
                 environment=thermompnn_import_environment(single),
             )
         if (double / "v2_ssm.py").is_file():
+            double_script = double / "v2_ssm.py"
             thermompnn_d_import_probe = _probe_command(
-                "ThermoMPNN-D inference import",
-                [str(python), str(double / "v2_ssm.py"), "--help"],
+                "ThermoMPNN-D inference bootstrap",
+                _bootstrap_probe_command(
+                    python,
+                    double_script,
+                    "thermompnn.datasets.dataset_utils",
+                    double / "thermompnn/datasets/dataset_utils.py",
+                    "Mutation",
+                    (
+                        double / "examples/configs/local.yaml",
+                        double / "examples/configs/epistatic.yaml",
+                    ),
+                ),
                 double,
                 errors,
             )

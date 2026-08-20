@@ -300,11 +300,30 @@ def _readiness_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         double / ".git",
         double / "examples/configs",
         double / "model_weights",
+        double / "thermompnn/datasets",
         double / "vanilla_model_weights",
     ):
         path.mkdir(parents=True, exist_ok=True)
+    fake_omegaconf = (
+        "from pathlib import Path\n"
+        "class OmegaConf:\n"
+        "    @staticmethod\n"
+        "    def load(path):\n"
+        "        content = Path(path).read_text()\n"
+        "        if content.rstrip().endswith('['):\n"
+        "            raise ValueError(f'Malformed YAML: {path}')\n"
+        "        return content\n"
+        "    @staticmethod\n"
+        "    def merge(*configs):\n"
+        "        return configs\n"
+    )
+    (single / "omegaconf.py").write_text(fake_omegaconf)
+    (double / "omegaconf.py").write_text(fake_omegaconf)
+    (single / "datasets.py").write_text("class Mutation:\n    pass\n")
     (single / "analysis/custom_inference.py").write_text(
-        "import argparse\nargparse.ArgumentParser().parse_args()\n"
+        "import argparse\n"
+        "from datasets import Mutation\n"
+        "argparse.ArgumentParser().parse_args()\n"
     )
     (single / "local.yaml").write_text(
         f"platform:\n  thermompnn_dir: {single.resolve()}\n"
@@ -312,7 +331,12 @@ def _readiness_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     (single / "models/thermoMPNN_default.pt").write_bytes(b"test")
     (single / "vanilla_model_weights/v_48_020.pt").write_bytes(b"test")
     (double / "v2_ssm.py").write_text(
-        "import argparse\nargparse.ArgumentParser().parse_args()\n"
+        "import argparse\n"
+        "from thermompnn.datasets.dataset_utils import Mutation\n"
+        "argparse.ArgumentParser().parse_args()\n"
+    )
+    (double / "thermompnn/datasets/dataset_utils.py").write_text(
+        "class Mutation:\n    pass\n"
     )
     (double / "examples/configs/local.yaml").write_text(
         f"platform:\n  thermompnn_dir: {double.resolve()}\n"
@@ -376,6 +400,99 @@ def test_colab_readiness_prefers_thermompnn_checkout_over_installed_datasets(
     )
 
     assert report["thermompnn_imports"] == "passed"
+
+
+def test_colab_readiness_rejects_wrong_thermompnn_datasets_source(
+    tmp_path: Path,
+) -> None:
+    single, double, output = _readiness_fixture(tmp_path)
+    repository = Path.cwd().resolve()
+    conflicting = tmp_path / "site-packages"
+    (conflicting / "datasets").mkdir(parents=True)
+    (conflicting / "datasets/__init__.py").write_text(
+        "class Mutation:\n    pass\n"
+    )
+    (single / "analysis/custom_inference.py").write_text(
+        "import argparse\n"
+        "import sys\n"
+        f"sys.path.insert(0, {str(conflicting)!r})\n"
+        "from datasets import Mutation\n"
+        "argparse.ArgumentParser().parse_args()\n"
+    )
+
+    with pytest.raises(colab.ColabReadinessError, match="datasets.*expected"):
+        colab.validate_colab_readiness(
+            python_executable=sys.executable,
+            atlas_repo=repository,
+            input_structure=repository / "data/23WN.cif",
+            thermompnn_repo=single,
+            thermompnn_d_repo=double,
+            output_root=output,
+            run_dir=output / "new-run",
+            required_modules=("atlas", "atlas.cli", "atlas.colab"),
+        )
+
+
+def test_colab_readiness_rejects_wrong_thermompnn_d_bootstrap_source(
+    tmp_path: Path,
+) -> None:
+    single, double, output = _readiness_fixture(tmp_path)
+    repository = Path.cwd().resolve()
+    conflicting = tmp_path / "site-packages"
+    wrong_module = conflicting / "thermompnn/datasets/dataset_utils.py"
+    wrong_module.parent.mkdir(parents=True)
+    wrong_module.write_text("class Mutation:\n    pass\n")
+    (double / "v2_ssm.py").write_text(
+        "import argparse\n"
+        "import sys\n"
+        f"sys.path.insert(0, {str(conflicting)!r})\n"
+        "from thermompnn.datasets.dataset_utils import Mutation\n"
+        "argparse.ArgumentParser().parse_args()\n"
+    )
+
+    with pytest.raises(colab.ColabReadinessError, match="dataset_utils.*expected"):
+        colab.validate_colab_readiness(
+            python_executable=sys.executable,
+            atlas_repo=repository,
+            input_structure=repository / "data/23WN.cif",
+            thermompnn_repo=single,
+            thermompnn_d_repo=double,
+            output_root=output,
+            run_dir=output / "new-run",
+            required_modules=("atlas", "atlas.cli", "atlas.colab"),
+        )
+
+
+@pytest.mark.parametrize(
+    ("configuration", "message"),
+    (("single", "ThermoMPNN inference bootstrap"), ("double", "ThermoMPNN-D inference bootstrap")),
+)
+def test_colab_readiness_rejects_malformed_upstream_configuration(
+    tmp_path: Path, configuration: str, message: str
+) -> None:
+    single, double, output = _readiness_fixture(tmp_path)
+    repository = Path.cwd().resolve()
+    if configuration == "single":
+        path = single / "local.yaml"
+        checkout = single.resolve()
+    else:
+        path = double / "examples/configs/epistatic.yaml"
+        checkout = double.resolve()
+    path.write_text(
+        f"platform:\n  thermompnn_dir: {checkout}\ninvalid: [\n"
+    )
+
+    with pytest.raises(colab.ColabReadinessError, match=message):
+        colab.validate_colab_readiness(
+            python_executable=sys.executable,
+            atlas_repo=repository,
+            input_structure=repository / "data/23WN.cif",
+            thermompnn_repo=single,
+            thermompnn_d_repo=double,
+            output_root=output,
+            run_dir=output / "new-run",
+            required_modules=("atlas", "atlas.cli", "atlas.colab"),
+        )
 
 
 def test_colab_readiness_aggregates_missing_layout_and_writability(
