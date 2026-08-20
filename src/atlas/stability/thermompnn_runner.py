@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import subprocess
 import sys
-from typing import Sequence
+from typing import Mapping, Sequence
 
 import pandas as pd
 
@@ -12,7 +14,6 @@ from atlas.stability.common import (
     CommandRunner,
     ScientificOutputError,
     StabilityVariant,
-    default_command_runner,
     normalized_frame,
     normalized_row,
     require_columns,
@@ -24,6 +25,31 @@ from atlas.stability.common import (
 THERMOMPNN_REVISION = "2b04fd370e399911b1fa5848112cc9013f084110"
 
 
+def thermompnn_import_environment(repository: Path) -> dict[str, str]:
+    """Put ThermoMPNN's local modules before installed packages."""
+
+    environment = dict(os.environ)
+    existing = environment.get("PYTHONPATH")
+    entries = [str(repository.resolve())]
+    if existing:
+        entries.append(existing)
+    environment["PYTHONPATH"] = os.pathsep.join(entries)
+    return environment
+
+
+def _run_thermompnn_command(
+    command: Sequence[str], *, cwd: Path, env: Mapping[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        list(command),
+        cwd=cwd,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
 class ThermoMPNNRunner:
     """Run the official exhaustive single-site model and select requested rows."""
 
@@ -31,7 +57,7 @@ class ThermoMPNNRunner:
         self,
         repository: str | Path,
         *,
-        command_runner: CommandRunner = default_command_runner,
+        command_runner: CommandRunner = _run_thermompnn_command,
     ) -> None:
         self.repository = Path(repository)
         self.command_runner = command_runner
@@ -59,7 +85,11 @@ class ThermoMPNNRunner:
             "--out_dir",
             str(destination),
         ]
-        completed = self.command_runner(command, cwd=self.repository)
+        completed = self.command_runner(
+            command,
+            cwd=self.repository,
+            env=thermompnn_import_environment(self.repository),
+        )
         if completed.returncode:
             detail = (completed.stderr or completed.stdout or "unknown error").strip()
             raise ScientificOutputError(f"ThermoMPNN inference failed: {detail}")

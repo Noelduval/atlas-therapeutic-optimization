@@ -344,6 +344,40 @@ def test_colab_readiness_executes_cli_and_checks_real_boundaries(
     assert report["output_writable"] is True
 
 
+def test_colab_readiness_prefers_thermompnn_checkout_over_installed_datasets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    single, double, output = _readiness_fixture(tmp_path)
+    repository = Path.cwd().resolve()
+    conflicting = tmp_path / "site-packages"
+    (conflicting / "datasets").mkdir(parents=True)
+    (conflicting / "datasets/__init__.py").write_text("# unrelated package\n")
+    (single / "datasets.py").write_text("class Mutation:\n    pass\n")
+    (single / "analysis/custom_inference.py").write_text(
+        "import argparse\n"
+        "import os\n"
+        "import sys\n"
+        "root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))\n"
+        "sys.path.append(root)\n"
+        "from datasets import Mutation\n"
+        "argparse.ArgumentParser().parse_args()\n"
+    )
+    monkeypatch.setenv("PYTHONPATH", str(conflicting))
+
+    report = colab.validate_colab_readiness(
+        python_executable=sys.executable,
+        atlas_repo=repository,
+        input_structure=repository / "data/23WN.cif",
+        thermompnn_repo=single,
+        thermompnn_d_repo=double,
+        output_root=output,
+        run_dir=output / "new-run",
+        required_modules=("atlas", "atlas.cli", "atlas.colab"),
+    )
+
+    assert report["thermompnn_imports"] == "passed"
+
+
 def test_colab_readiness_aggregates_missing_layout_and_writability(
     tmp_path: Path,
 ) -> None:

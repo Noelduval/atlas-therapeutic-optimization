@@ -43,6 +43,48 @@ def test_nonzero_external_exit_is_preserved(tmp_path: Path) -> None:
         runner.run(tmp_path / "input.pdb", [SINGLE], tmp_path / "scores")
 
 
+def test_thermompnn_prefers_checkout_datasets_module(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path, "analysis/custom_inference.py")
+    conflicting = tmp_path / "site-packages"
+    (conflicting / "datasets").mkdir(parents=True)
+    (conflicting / "datasets/__init__.py").write_text("# unrelated package\n")
+    (repo / "datasets.py").write_text("class Mutation:\n    pass\n")
+    (repo / "analysis/custom_inference.py").write_text(
+        "import argparse\n"
+        "import csv\n"
+        "import os\n"
+        "import sys\n"
+        "root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))\n"
+        "sys.path.append(root)\n"
+        "from datasets import Mutation\n"
+        "parser = argparse.ArgumentParser()\n"
+        "parser.add_argument('--pdb')\n"
+        "parser.add_argument('--chain')\n"
+        "parser.add_argument('--out_dir')\n"
+        "args = parser.parse_args()\n"
+        "output = os.path.join(args.out_dir, 'ThermoMPNN_inference_input.csv')\n"
+        "os.makedirs(args.out_dir, exist_ok=True)\n"
+        "with open(output, 'w', newline='') as handle:\n"
+        "    writer = csv.DictWriter(handle, fieldnames=[\n"
+        "        'ddG_pred', 'position', 'wildtype', 'mutation'\n"
+        "    ])\n"
+        "    writer.writeheader()\n"
+        "    writer.writerow({\n"
+        "        'ddG_pred': -0.42, 'position': 91,\n"
+        "        'wildtype': 'Y', 'mutation': 'F'\n"
+        "    })\n"
+    )
+    monkeypatch.setenv("PYTHONPATH", str(conflicting))
+
+    scores = ThermoMPNNRunner(repo).run(
+        tmp_path / "input.pdb", [SINGLE], tmp_path / "scores"
+    )
+
+    assert scores.loc[0, "predicted_ddg_or_score"] == pytest.approx(-0.42)
+
+
 def test_thermompnn_normalizes_real_shaped_output(tmp_path: Path) -> None:
     repo = _repo(tmp_path, "analysis/custom_inference.py")
 

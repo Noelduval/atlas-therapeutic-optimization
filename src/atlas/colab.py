@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 from typing import Mapping, Sequence
 
+from atlas.stability.thermompnn_runner import thermompnn_import_environment
+
 
 class StageExecutionError(RuntimeError):
     """A Colab production stage failed after its full evidence was printed."""
@@ -200,11 +202,14 @@ def _probe_command(
     command: Sequence[str],
     cwd: Path,
     errors: list[str],
+    *,
+    environment: Mapping[str, str] | None = None,
 ) -> str:
     try:
         completed = subprocess.run(
             [str(part) for part in command],
             cwd=cwd,
+            env=environment,
             text=True,
             capture_output=True,
             check=False,
@@ -359,6 +364,7 @@ def validate_colab_readiness(
                 [str(python), str(single / "analysis/custom_inference.py"), "--help"],
                 single,
                 errors,
+                environment=thermompnn_import_environment(single),
             )
         if (double / "v2_ssm.py").is_file():
             thermompnn_d_import_probe = _probe_command(
