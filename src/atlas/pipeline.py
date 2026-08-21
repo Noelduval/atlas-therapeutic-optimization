@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import re
 import shutil
@@ -14,7 +15,11 @@ from atlas.design.candidate_generator import candidate_table, generate_candidate
 from atlas.design.rank_candidates import rank_candidates
 from atlas.dynamics import DynamicsConfig, minimize_variant, run_short_md
 from atlas.geometry.catalytic_metrics import GeometryRecord, measure_geometry, measure_many
-from atlas.reporting.csv_outputs import write_provenance, write_warnings
+from atlas.reporting.csv_outputs import (
+    write_provenance,
+    write_run_manifest,
+    write_warnings,
+)
 from atlas.run_context import prepare_run_directory
 from atlas.reporting.plots import (
     plot_candidate_ranking,
@@ -317,6 +322,16 @@ def run_pipeline(
         )
     run_dir = prepare_run_directory(config)
     warnings: list[str] = []
+    manifest_path = run_dir / "run_manifest.json"
+    if not manifest_path.exists():
+        run_context = json.loads((run_dir / "run_context.json").read_text())
+        write_run_manifest(
+            config.input_structure,
+            manifest_path,
+            run_id=run_dir.name,
+            checkpoint_directory=run_dir,
+            run_context=run_context,
+        )
     if not (run_dir / "provenance.json").exists():
         write_provenance(
             config.input_structure,

@@ -6,12 +6,41 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from types import SimpleNamespace
 
 import pytest
 
 import atlas.colab as colab
 from atlas.colab import build_stage_command
+
+
+def _notebook_cell(tag: str) -> dict[str, object]:
+    notebook = json.loads(Path("notebooks/Atlas_DP622_Colab.ipynb").read_text())
+    return next(
+        cell
+        for cell in notebook["cells"]
+        if tag in cell.get("metadata", {}).get("tags", [])
+    )
+
+
+def _notebook_function(
+    tag: str, name: str, namespace: dict[str, object] | None = None
+):
+    tree = ast.parse("".join(_notebook_cell(tag)["source"]))
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == name
+    )
+    scope = dict(namespace or {})
+    exec(
+        compile(
+            ast.Module(body=[function], type_ignores=[]),
+            f"notebook-{tag}-{name}",
+            "exec",
+        ),
+        scope,
+    )
+    return scope[name]
 
 
 def test_stage_command_uses_production_cli_and_resume_checkpoint() -> None:
@@ -52,6 +81,107 @@ def test_stage_command_uses_production_cli_and_resume_checkpoint() -> None:
     ]
 
 
+def test_notebook_builds_one_pinned_scientific_python_environment() -> None:
+    build_commands = _notebook_function(
+        "repository-setup",
+        "build_scientific_environment_commands",
+        {"Path": Path},
+    )
+    commands = build_commands(
+        atlas_dir=Path("/content/Atlas"),
+        environment_dir=Path("/content/atlas-science"),
+        host_python="/usr/local/bin/python3.13",
+    )
+
+    scientific_python = "/content/atlas-science/bin/python"
+    assert commands[0] == [
+        "/usr/local/bin/python3.13",
+        "-m",
+        "pip",
+        "install",
+        "--quiet",
+        "uv==0.8.13",
+    ]
+    assert commands[1] == [
+        "/usr/local/bin/python3.13",
+        "-m",
+        "uv",
+        "venv",
+        "--python",
+        "3.10",
+        "--managed-python",
+        "/content/atlas-science",
+    ]
+    assert commands[2][:7] == [
+        "/usr/local/bin/python3.13",
+        "-m",
+        "uv",
+        "pip",
+        "install",
+        "--python",
+        scientific_python,
+    ]
+    assert "https://download.pytorch.org/whl/cu118" in commands[2]
+    assert {"torch==2.5.1", "torchvision==0.20.1", "torchaudio==2.5.1"} <= set(
+        commands[2]
+    )
+    assert commands[3][:7] == [
+        "/usr/local/bin/python3.13",
+        "-m",
+        "uv",
+        "pip",
+        "install",
+        "--python",
+        scientific_python,
+    ]
+    assert {
+        "/content/Atlas[dynamics]",
+        "numpy==2.1.3",
+        "pandas==2.2.3",
+        "pytorch-lightning==2.4.0",
+        "torchmetrics==1.6.0",
+        "openmm==8.2.0",
+    } <= set(commands[3])
+    assert all(scientific_python in command for command in commands[2:])
+
+
+def test_notebook_routes_atlas_stages_through_scientific_python() -> None:
+    build_command = _notebook_function(
+        "full-preflight",
+        "build_atlas_stage_command",
+        {
+            "Path": Path,
+            "SCIENTIFIC_PYTHON": Path("/content/atlas-science/bin/python"),
+            "INPUT_STRUCTURE": Path("/content/Atlas/data/23WN.cif"),
+            "OUTPUT_ROOT": Path("/content/checkpoints"),
+            "ATLAS_DIR": Path("/content/Atlas"),
+            "EXTERNAL": Path("/content/Atlas/.external"),
+            "DYNAMICS_MODE": "minimize",
+            "RUN_ID": "atlas-t4-test",
+        },
+    )
+
+    command = build_command("thermompnn-d", resume=True)
+
+    assert command[0] == "/content/atlas-science/bin/python"
+    assert command[1:4] == ["-m", "atlas", "run"]
+    assert command[-3:] == ["--stop-after", "thermompnn-d", "--resume"]
+
+
+def test_notebook_host_kernel_never_imports_atlas() -> None:
+    notebook = json.loads(Path("notebooks/Atlas_DP622_Colab.ipynb").read_text())
+    imported: list[str] = []
+    for cell in notebook["cells"]:
+        if cell["cell_type"] != "code":
+            continue
+        for node in ast.walk(ast.parse("".join(cell["source"]))):
+            if isinstance(node, ast.Import):
+                imported.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.append(node.module)
+    assert not [name for name in imported if name == "atlas" or name.startswith("atlas.")]
+
+
 def test_notebook_configuration_and_stage_cells_are_executable() -> None:
     notebook = json.loads(Path("notebooks/Atlas_DP622_Colab.ipynb").read_text())
     tagged = {
@@ -83,167 +213,6 @@ def test_notebook_configuration_and_stage_cells_are_executable() -> None:
     for index, cell in enumerate(notebook["cells"]):
         if cell["cell_type"] == "code":
             compile("".join(cell["source"]), f"notebook-cell-{index}", "exec")
-
-
-def test_notebook_install_is_importable_without_kernel_restart(
-    tmp_path: Path,
-) -> None:
-    """Catch editable installs whose new .pth is invisible to a live kernel."""
-
-    notebook = json.loads(Path("notebooks/Atlas_DP622_Colab.ipynb").read_text())
-    setup_cell = next(
-        cell
-        for cell in notebook["cells"]
-        if "repository-setup" in cell.get("metadata", {}).get("tags", [])
-    )
-    tree = ast.parse("".join(setup_cell["source"]))
-    pip_arguments = next(
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.List)
-        and any(
-            isinstance(element, ast.Constant) and element.value == "pip"
-            for element in node.elts
-        )
-    )
-
-    package = tmp_path / "package"
-    (package / "src" / "atlas").mkdir(parents=True)
-    (package / "src" / "atlas" / "__init__.py").write_text("")
-    (package / "src" / "atlas" / "colab.py").write_text("READY = True\n")
-    (package / "setup.py").write_text(
-        "from setuptools import setup\n"
-        "setup(name='atlas-clean-kernel-test', version='1', "
-        "package_dir={'': 'src'}, packages=['atlas'], "
-        "extras_require={'dynamics': []})\n"
-    )
-    arguments = eval(
-        compile(ast.Expression(pip_arguments), "notebook-pip-command", "eval"),
-        {
-            "ATLAS_DIR": package,
-            "sys": SimpleNamespace(executable=sys.executable),
-        },
-    )
-    package_index = next(
-        index
-        for index, value in enumerate(arguments)
-        if str(value).startswith(str(package))
-    )
-    command = arguments[: package_index + 1]
-    target = tmp_path / "site-packages"
-    install_index = command.index("install") + 1
-    command[install_index:install_index] = [
-        "--quiet",
-        "--no-deps",
-        "--target",
-        str(target),
-    ]
-    driver = (
-        "import subprocess, sys\n"
-        f"sys.path.insert(0, {str(target)!r})\n"
-        f"subprocess.run({command!r}, check=True)\n"
-        "from atlas.colab import READY\n"
-        "assert READY is True\n"
-    )
-    completed = subprocess.run(
-        [sys.executable, "-S", "-c", driver],
-        cwd=tmp_path,
-        text=True,
-        capture_output=True,
-    )
-    assert completed.returncode == 0, completed.stderr
-
-
-def test_notebook_activation_replaces_stale_installed_atlas_modules(
-    tmp_path: Path,
-) -> None:
-    """Reproduce reinstalling Atlas after an older module is cached in Colab."""
-
-    notebook = json.loads(Path("notebooks/Atlas_DP622_Colab.ipynb").read_text())
-    activation_cells = [
-        cell
-        for cell in notebook["cells"]
-        if "activate-atlas-install" in cell.get("metadata", {}).get("tags", [])
-    ]
-    assert len(activation_cells) == 1
-    activation_source = "".join(activation_cells[0]["source"])
-    setup_cell = next(
-        cell
-        for cell in notebook["cells"]
-        if "repository-setup" in cell.get("metadata", {}).get("tags", [])
-    )
-    setup_tree = ast.parse("".join(setup_cell["source"]))
-    reinstall_list = next(
-        node
-        for node in ast.walk(setup_tree)
-        if isinstance(node, ast.List)
-        and any(
-            isinstance(element, ast.Constant)
-            and element.value == "--force-reinstall"
-            for element in node.elts
-        )
-    )
-
-    single, double, output = _readiness_fixture(tmp_path)
-    repository = Path.cwd().resolve()
-    installed = tmp_path / "site-packages"
-    stale_package = installed / "atlas"
-    stale_package.mkdir(parents=True)
-    (stale_package / "__init__.py").write_text("__version__ = 'stale'\n")
-    (stale_package / "colab.py").write_text(
-        "STALE = True\n"
-        "def validate_colab_readiness(**kwargs):\n"
-        "    raise RuntimeError('stale Atlas readiness executed')\n"
-    )
-    reinstall_command = eval(
-        compile(ast.Expression(reinstall_list), "notebook-atlas-reinstall", "eval"),
-        {"ATLAS_DIR": repository, "sys": SimpleNamespace(executable=sys.executable)},
-    )
-    install_index = reinstall_command.index("install") + 1
-    reinstall_command[install_index:install_index] = [
-        "--upgrade",
-        "--target",
-        str(installed),
-    ]
-    driver = (
-        "import os\n"
-        "from pathlib import Path\n"
-        "import subprocess\n"
-        "import sys\n"
-        f"installed = Path({str(installed)!r})\n"
-        "sys.path.insert(0, str(installed))\n"
-        "os.environ['PYTHONPATH'] = os.pathsep.join([\n"
-        "    str(installed), os.environ.get('PYTHONPATH', '')\n"
-        "]).rstrip(os.pathsep)\n"
-        "import atlas.colab as stale\n"
-        "assert stale.STALE is True\n"
-        f"subprocess.run({reinstall_command!r}, check=True)\n"
-        f"ATLAS_DIR = Path({str(repository)!r})\n"
-        f"ATLAS_SHA = {'test-current-checkout'!r}\n"
-        f"exec({activation_source!r})\n"
-        "import atlas.colab as current\n"
-        "assert not hasattr(current, 'STALE')\n"
-        "assert hasattr(current, '_bootstrap_probe_command')\n"
-        "report = current.validate_colab_readiness(\n"
-        "    python_executable=sys.executable,\n"
-        f"    atlas_repo=Path({str(repository)!r}),\n"
-        f"    input_structure=Path({str(repository / 'data/23WN.cif')!r}),\n"
-        f"    thermompnn_repo=Path({str(single)!r}),\n"
-        f"    thermompnn_d_repo=Path({str(double)!r}),\n"
-        f"    output_root=Path({str(output)!r}),\n"
-        f"    run_dir=Path({str(output / 'new-run')!r}),\n"
-        "    required_modules=('atlas', 'atlas.cli', 'atlas.colab'),\n"
-        ")\n"
-        "assert report['thermompnn_imports'] == 'passed'\n"
-        "assert report['thermompnn_d_imports'] == 'passed'\n"
-    )
-    completed = subprocess.run(
-        [sys.executable, "-c", driver],
-        cwd=tmp_path,
-        text=True,
-        capture_output=True,
-    )
-    assert completed.returncode == 0, completed.stderr
 
 
 def test_normal_install_can_run_structure_checkpoint_from_checkout(
@@ -331,8 +300,8 @@ def test_failed_stage_prints_complete_subprocess_evidence(
     assert "must-not-be-printed" not in diagnostic
 
 
-def test_notebook_stage_wrapper_uses_evidence_preserving_runner(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_notebook_stage_wrapper_runs_generated_scientific_command(
+    tmp_path: Path,
 ) -> None:
     notebook = json.loads(Path("notebooks/Atlas_DP622_Colab.ipynb").read_text())
     preflight_cell = next(
@@ -341,11 +310,17 @@ def test_notebook_stage_wrapper_uses_evidence_preserving_runner(
         if "full-preflight" in cell.get("metadata", {}).get("tags", [])
     )
     tree = ast.parse("".join(preflight_cell["source"]))
-    function = next(
+    functions = [
         node
         for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == "run_atlas_stage"
-    )
+        if isinstance(node, ast.FunctionDef)
+        and node.name in {"build_atlas_stage_command", "run_atlas_stage"}
+    ]
+    recorded: dict[str, object] = {}
+
+    def record_command(label, command, cwd):
+        recorded.update(label=label, command=command, cwd=cwd)
+
     namespace = {
         "RUN_DIR": tmp_path / "run",
         "INPUT_STRUCTURE": tmp_path / "23WN.cif",
@@ -354,30 +329,24 @@ def test_notebook_stage_wrapper_uses_evidence_preserving_runner(
         "EXTERNAL": tmp_path / ".external",
         "DYNAMICS_MODE": "minimize",
         "RUN_ID": "diagnostic-run",
-        "sys": SimpleNamespace(executable=sys.executable),
-        "subprocess": subprocess,
-        "build_stage_command": lambda **kwargs: [
-            sys.executable,
-            "-c",
-            "import sys; print('notebook stderr', file=sys.stderr); raise SystemExit(2)",
-        ],
-        "run_stage_command": colab.run_stage_command,
+        "SCIENTIFIC_PYTHON": Path("/content/atlas-science/bin/python"),
+        "run_bootstrap_command": record_command,
     }
     exec(
         compile(
-            ast.Module(body=[function], type_ignores=[]),
+            ast.Module(body=functions, type_ignores=[]),
             "notebook-stage-wrapper",
             "exec",
         ),
         namespace,
     )
 
-    with pytest.raises(colab.StageExecutionError):
-        namespace["run_atlas_stage"]("Structure stage", "structure")
+    namespace["run_atlas_stage"]("Structure stage", "structure")
 
-    diagnostic = capsys.readouterr().out
-    assert "Stage: Structure stage" in diagnostic
-    assert "notebook stderr" in diagnostic
+    assert recorded["label"] == "Structure stage"
+    assert recorded["cwd"] == tmp_path
+    assert recorded["command"][0] == "/content/atlas-science/bin/python"
+    assert recorded["command"][-2:] == ["--stop-after", "structure"]
 
 
 def _readiness_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -733,12 +702,27 @@ def test_notebook_configures_upstream_paths_before_preflight(tmp_path: Path) -> 
     config_index, config_cell = tagged["upstream-runtime-config"]
     assert tagged["repository-setup"][0] < config_index < tagged["full-preflight"][0]
 
-    exec("".join(config_cell["source"]), {"EXTERNAL": tmp_path})
+    recorded: dict[str, object] = {}
 
-    assert str(single.resolve()) in (single / "local.yaml").read_text()
-    assert str(double.resolve()) in (
-        double / "examples/configs/local.yaml"
-    ).read_text()
+    def record_command(label, command, cwd):
+        recorded.update(label=label, command=command, cwd=cwd)
+
+    exec(
+        "".join(config_cell["source"]),
+        {
+            "EXTERNAL": tmp_path,
+            "SCIENTIFIC_PYTHON": Path("/content/atlas-science/bin/python"),
+            "ATLAS_DIR": tmp_path,
+            "run_bootstrap_command": record_command,
+        },
+    )
+
+    assert recorded["command"][:2] == [
+        "/content/atlas-science/bin/python",
+        "-c",
+    ]
+    assert str(single) in recorded["command"][2]
+    assert str(double) in recorded["command"][2]
 
 
 def test_notebook_bootstrap_failure_prints_complete_evidence(
@@ -756,7 +740,10 @@ def test_notebook_bootstrap_failure_prints_complete_evidence(
         for node in tree.body
         if isinstance(node, ast.FunctionDef) and node.name == "run_bootstrap_command"
     )
-    namespace = {"subprocess": subprocess}
+    namespace = {
+        "subprocess": subprocess,
+        "StageExecutionError": colab.StageExecutionError,
+    }
     exec(
         compile(
             ast.Module(body=[function], type_ignores=[]),
@@ -783,3 +770,29 @@ def test_notebook_bootstrap_failure_prints_complete_evidence(
     assert "bootstrap stderr" in diagnostic
     assert f"Working directory: {tmp_path}" in diagnostic
     assert "Suggested next action:" in diagnostic
+
+
+def test_notebook_bootstrap_success_reports_stage_and_elapsed_time(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_command = _notebook_function(
+        "hardware-check",
+        "run_bootstrap_command",
+        {
+            "subprocess": subprocess,
+            "StageExecutionError": colab.StageExecutionError,
+        },
+    )
+
+    completed = run_command(
+        "Runtime provenance",
+        [sys.executable, "-c", "print('scientific evidence')"],
+        cwd=tmp_path,
+    )
+
+    diagnostic = capsys.readouterr().out
+    assert completed.returncode == 0
+    assert "START: Runtime provenance" in diagnostic
+    assert "PASS: Runtime provenance" in diagnostic
+    assert "Elapsed seconds:" in diagnostic
+    assert "scientific evidence" in diagnostic

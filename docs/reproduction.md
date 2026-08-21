@@ -94,6 +94,13 @@ model CSVs and scientific outputs survive a Colab runtime restart. Each model
 stage runs in its own process, and the candidate stage reuses the genuine
 ThermoMPNN exhaustive single-mutant CSV produced before validation. No Rosetta
 license, Docker image, premium Colab tier, or separate cloud VM is required.
+The host kernel only orchestrates setup and display. Pinned `uv==0.8.13`
+creates `/content/atlas-science` from managed Python 3.10 because both pinned
+upstream repositories specify Python 3.10 and CUDA 11.7/11.8. PyTorch 2.5.1,
+torchvision 0.20.1, and torchaudio 2.5.1 use the official CUDA 11.8 wheel index;
+all other direct scientific dependencies are version-pinned in the notebook.
+The host interpreter never imports Atlas, and every scientific stage uses
+`/content/atlas-science/bin/python`.
 Before Stage 3, the notebook executes the installed Atlas imports and CLI, both
 upstream inference-script imports, repository/model layout checks, and a real
 checkpoint-directory write probe. Every later CLI failure prints its exact
@@ -121,6 +128,9 @@ can add 10–60 minutes if all systems parameterize successfully.
 commits, dynamics mode, UTC time, and claim boundary. `pipeline_warnings.md`
 records missing evidence. Raw external CSVs remain under the run's `stability/`
 subdirectories and normalized scores are copied to stable top-level schemas.
-`run_context.json` is the resume identity, and `execution_status.json` separates
+`run_context.json` is the resume identity. `run_manifest.json` records the run
+ID, absolute checkpoint directory, Atlas/input/model identities, validation
+policy, scientific Python executable/version, and installed package versions.
+`execution_status.json` separates
 `NOT_EVALUATED`, `EXTERNALLY_BLOCKED`, `BENCHMARK FAILED`, and `VALIDATED`
 outcomes without treating infrastructure failure as scientific evidence.

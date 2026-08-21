@@ -63,3 +63,25 @@ def write_provenance(
     payload.update(extra or {})
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     return output
+
+
+def write_run_manifest(
+    input_path: str | Path,
+    path: str | Path,
+    *,
+    run_id: str,
+    checkpoint_directory: str | Path,
+    run_context: Mapping[str, object],
+) -> Path:
+    """Write the self-contained reproduction identity for a checkpointed run."""
+
+    return write_provenance(
+        input_path,
+        path,
+        {
+            **dict(run_context),
+            "run_id": run_id,
+            "checkpoint_directory": str(Path(checkpoint_directory).resolve()),
+            "python_executable": sys.executable,
+        },
+    )

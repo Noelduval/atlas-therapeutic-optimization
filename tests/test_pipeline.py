@@ -52,6 +52,36 @@ class FakeStabilityProvider:
         return self._rows({variant.variant_id: -0.1 for variant in variants})
 
 
+def test_structure_checkpoint_writes_reproducible_run_manifest(tmp_path: Path) -> None:
+    result = run_pipeline(
+        PipelineConfig(
+            input_structure=Path("data/23WN.cif"),
+            output_root=tmp_path,
+            atlas_repo=Path.cwd(),
+            run_id="manifest-checkpoint",
+            dynamics_mode="minimize",
+            stop_after="structure",
+        )
+    )
+
+    context = json.loads((result.run_dir / "run_context.json").read_text())
+    manifest = json.loads((result.run_dir / "run_manifest.json").read_text())
+
+    assert manifest["run_id"] == "manifest-checkpoint"
+    assert manifest["checkpoint_directory"] == str(result.run_dir.resolve())
+    assert manifest["atlas_commit"] == context["atlas_commit"]
+    assert manifest["input_sha256"] == context["input_sha256"]
+    assert manifest["thermompnn_commit"] == context["thermompnn_commit"]
+    assert manifest["thermompnn_d_commit"] == context["thermompnn_d_commit"]
+    assert manifest["dynamics_mode"] == "minimize"
+    assert manifest["validation_policy"] == context["validation_policy"]
+    assert manifest["python_executable"]
+    assert manifest["packages"]["torch"]
+    assert manifest["claim_boundary"] == (
+        "computational predictions requiring experimental validation"
+    )
+
+
 def test_failed_gate_hard_stops_before_novel_artifacts(tmp_path: Path) -> None:
     provider = FakeStabilityProvider(double_score=0.5)
     config = PipelineConfig(
@@ -64,6 +94,7 @@ def test_failed_gate_hard_stops_before_novel_artifacts(tmp_path: Path) -> None:
         run_pipeline(config, stability_provider=provider)
     run_dir = tmp_path / "run-fail"
     assert (run_dir / "known_mutation_validation.csv").is_file()
+    assert (run_dir / "run_manifest.json").is_file()
     assert not provider.candidates_called
     assert not (run_dir / "novel_candidates_manifest.csv").exists()
     assert not (run_dir / "novel_candidates_ranked.csv").exists()

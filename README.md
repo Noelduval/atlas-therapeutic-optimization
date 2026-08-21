@@ -110,9 +110,13 @@ select a standard T4 GPU runtime, and run cells in order. The visible
 `ATLAS_REF` defaults to `codex/atlas-v1-dynamic-geometry`. The notebook checks
 out that ref, verifies the resulting Atlas SHA and both fixed model commits,
 runs a fail-fast hardware/data/import preflight, and then invokes the production
-CLI in resumable stages. Google Drive is the default checkpoint location, so a
-runtime restart can resume the same provenance-bound run. Each predictor exits
-before the next stage starts, releasing its GPU allocations.
+CLI in resumable stages. The mutable Colab kernel is orchestration-only: pinned
+`uv==0.8.13` creates a managed Python 3.10 environment, matching both upstream
+model environment files, and installs PyTorch 2.5.1 with CUDA 11.8. Preflight,
+readiness, Atlas, both model runners, geometry, OpenMM, validation, and ranking
+all use that one scientific executable. Google Drive is the default checkpoint
+location, so a runtime restart can resume the same provenance-bound run. Each
+predictor exits before the next stage starts, releasing its GPU allocations.
 
 Estimated first-run wall time on a standard Colab T4 is 20–60 minutes including
 installation, model inference, and default OpenMM minimization. This is an
@@ -129,6 +133,7 @@ commits, dynamics mode, and validation policy. Before the gate, expect:
 - `DP622_active_like_reconstruction.pdb`
 - `residue_numbering_map.csv`
 - `known_mutants_manifest.csv` and `known_mutant_pdbs/`
+- `run_context.json` and self-contained `run_manifest.json`
 - `thermompnn_scores.csv`
 - `geometry_metrics.csv`
 - `openmm_dynamics_summary.csv` and `openmm_snapshot_metrics.csv`
