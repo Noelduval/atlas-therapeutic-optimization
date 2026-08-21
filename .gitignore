@@ -185,4 +185,8 @@ __marimo__/
 .DS_Store
 .python-version.local
 runs/
+outputs/
+figures/
+.external/
+*.zip
 tmp/

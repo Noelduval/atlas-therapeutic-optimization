@@ -1,3 +1,3 @@
-"""Atlas v1: inspectable optimization for the VITA Aβ metalloprotease challenge."""
+"""Atlas v1: validation-gated DP622 mutation prioritization."""
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

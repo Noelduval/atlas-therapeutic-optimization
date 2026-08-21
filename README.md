@@ -1,140 +1,166 @@
 # Atlas v1
 
-Atlas v1 is a focused, inspectable AI-for-science research-engineering artifact
-for one scientific program.
+Atlas is a validation-gated computational pipeline for prioritizing mutations to
+the published DP622 metalloprotease scaffold. It reconstructs an **active-like**
+DP622–Aβ coordinate model from PDB 23WN, checks the workflow against published
+mutation controls, and generates novel computational candidates only if that
+benchmark gate passes.
 
-Alzheimer’s disease remains a defining motivation for more precise and auditable
-therapeutic research. Modern biological models can score sequences, structures,
-interactions, and simulations, but coordinating their evidence—and surfacing when
-they disagree—is itself a scientific problem.
+Atlas produces computational predictions for future experimental testing. It
+does not establish catalytic improvement, therapeutic benefit, or experimental
+validation.
 
-## Atlas Challenge: Alzheimer’s Aβ Metalloprotease Optimization
+## Why 23WN needs reconstruction
 
-Starting from the published DP622-S2 Aβ-cleaving metalloprotease, Atlas runs an
-autonomous computational optimization campaign in the Aβ42/S2 system and locks
-its recommendation before revealing retrospective VITA controls.
+23WN is the published pre-catalytic cryo-EM complex of an inactive DP622 E96Q
+construct with a resolved Aβ segment and zinc. Deposited chain A residues 25–239
+map to DP622 residues 1–215. Atlas extracts that domain, renumbers it, retains
+Aβ residues B34–41 and zinc, and makes the explicit isosteric coordinate edit
+deposited Q120 → DP622 E96. The output is therefore called an **active-like
+reconstruction**, never an experimentally observed active structure.
 
-The system autonomously generates constrained hypotheses, evaluates them across
-independent evidence dimensions, and sends only a locked recommendation forward
-for experimental validation; it never substitutes computation for that validation.
+The benchmark controls are Y91F and D126A (published beneficial-looking trends),
+H172A (regressive), and Y91F/D126A (strongly regressive). Published measurements
+label the gate; they are not model inputs or claimed prospective validation.
 
-Atlas v1 performs **computational candidate prioritization**, not experimental
-validation. The `demo_cached` profile uses deterministic synthetic demo evidence
-to exercise orchestration and reporting; it does not fabricate kinetic constants
-or represent measured biological results.
+## Workflow and hard stop
 
-Official-source recovery supplies the VITA Supplementary Information, RCSB 23WN
-coordinates, and EMD-69322 metadata. The structure is the inactive DP622 E96Q
-fusion construct; exact active DP622-S2 and optimized-control sequences remain
-unavailable and are never inferred.
+```mermaid
+flowchart LR
+    A["23WN E96Q coordinates"] --> B["Active-like Q120E reconstruction"]
+    B --> C["Known mutant structures"]
+    C --> D["ThermoMPNN stability"]
+    C --> E["Static catalytic geometry"]
+    C --> F["Restrained OpenMM attempt"]
+    D --> G{"Published-control gate"}
+    E --> G
+    F --> G
+    G -->|fail| H["Stop: no novel artifacts"]
+    G -->|pass| I["Second-shell candidates"]
+    I --> J["Stability + geometry ranking"]
+```
 
-## What Atlas does
+ThermoMPNN and ThermoMPNN-D estimate mutation-associated stability changes;
+they do not predict catalysis. Catalytic geometry is evaluated separately using
+centralized atom selectors for zinc, the deposited scissile carbonyl, zinc
+ligands, reconstructed E96, H172, and the Y91/D126 pocket. OpenMM is comparative
+screening, not publication-grade MD. If the truncated metalloprotease/substrate/
+zinc system cannot be parameterized, Atlas records the original failure, emits
+no fake snapshots, and uses explicitly labeled static geometry.
 
-Atlas coordinates a typed, deterministic LangGraph campaign that:
+Novel candidate generation is physically downstream of `require_validation_pass`.
+A failed gate exits nonzero and cannot create a novel manifest, ranking, top-five
+PDB directory, or candidate-ranking figure.
 
-1. loads only the challenge information permitted before recommendation lock;
-2. proposes constrained, abstract candidate hypotheses;
-3. evaluates seven independent evidence dimensions;
-4. records disagreement instead of collapsing every score into false consensus;
-5. applies Pareto ranking and a bounded Scientific Critic refinement;
-6. persists a hash-chained event ledger, Decision Trace, Scientific Notebook,
-   and recommendation lock; and
-7. reveals published retrospective controls only after that lock exists.
+## Architecture
 
-The default demo reaches a valid negative result: it retains DP622-S2 because no
-abstract candidate clears the scientific gates and promotion margin. Seed
-retention is an intentional research outcome, not a failed software run.
+The implementation is a direct Python pipeline because the phase order is a
+scientific invariant; LangGraph would add state machinery without improving the
+fixed hard-stop workflow.
 
-## Evidence and provenance
-
-| Class | Atlas v1 meaning | Present in `demo_cached` |
-| --- | --- | --- |
-| Official source asset | Publisher or repository material stored with URL, retrieval date, and checksum | VITA article and supplement, RCSB 23WN coordinates, EMDB EMD-69322 metadata |
-| Published measured | Experimental values reported by VITA; inaccessible until the recommendation lock is persisted | Post-lock kinetics, cleavage, selectivity, and mutant outcomes |
-| Cached / synthetic demo | Deterministic fixtures that exercise orchestration; not biological model output | All seven pre-lock candidate-evaluation dimensions |
-| Predicted | Output from a production biological model or simulation adapter | None; no production model is invoked in v1 |
-| Derived | Deterministic calculations over clearly identified inputs | Rankings, disagreement flags, Decision Trace, benchmark ablations, and post-lock retrospective comparison |
-| Unavailable | Asset not present locally and never inferred | Exact active/optimized enzyme sequences, raw assays, optimized structures/design files, and map voxels |
-
-Every candidate evidence record carries explicit provenance. Published measured
-labels remain excluded from AtlasState, model adapters, candidate evidence,
-ranking, the Decision Trace, and the Scientific Notebook before lock.
-
-## Recovered and unavailable scientific assets
-
-Recovered official assets are registered in
-[`data/atlas_challenge/manifest.yaml`](data/atlas_challenge/manifest.yaml), with
-sequence status in
-[`data/atlas_challenge/sequences.yaml`](data/atlas_challenge/sequences.yaml).
-PDB 23WN is the **inactive DP622 E96Q fusion construct**, not active DP622-S2.
-
-The following remain explicitly `UNAVAILABLE` locally:
-
-- exact active DP622-S2 sequence;
-- exact OP609-S2 sequence;
-- exact OP669-S2 sequence;
-- raw assay-level measurements underlying published aggregate values;
-- named optimized-variant coordinate/design files; and
-- full EMD-69322 map voxels, which are publicly hosted but intentionally not
-  downloaded because the current workflow does not consume them.
-
-Atlas does not back-mutate E96Q, reconstruct optimized sequences from prose, or
-invent missing measurements.
-
-### Canonical configuration
-
-| Field | Value |
+| Package | Responsibility |
 | --- | --- |
-| Starting candidate | DP622-S2 |
-| Target context | Aβ42 |
-| Cleavage system | S2 |
-| Campaign type | Blinded retrospective benchmark |
-| Optimization mode | Constrained scaffold optimization |
-| Source | VITA, “De novo design of metalloproteases for targeted amyloid-β cleavage” |
+| `structure` | 23WN extraction, numbering, Q120E reconstruction, deterministic mutations |
+| `stability` | Validated adapters around pinned official ThermoMPNN repositories |
+| `geometry` | Atom selection, distances, aligned RMSDs, substrate/pocket metrics |
+| `dynamics` | Restrained OpenMM minimization/short-MD attempt and honest fallback |
+| `validation` | Published-control classifications and non-negotiable gate |
+| `design` | Protected-site exclusions, interpretable candidates, transparent ranking |
+| `reporting` | CSVs, provenance, warnings, and deterministic PNG figures |
+
+Rosetta, PyRosetta, Docker, LangGraph, and Streamlit are not active v1
+dependencies. The prior synthetic application is removed from the package;
+source-recovery metadata is preserved under `archive/legacy_v0/`.
 
 ## Quick start
 
-Prerequisites: Python 3.12 and
-[uv](https://docs.astral.sh/uv/getting-started/installation/).
+Prerequisites: Python 3.10–3.12. Structural reconstruction and all unit tests run on
+CPU without the external neural models.
 
 ```bash
-uv sync
-uv run atlas challenge run --profile demo_cached
-uv run atlas benchmark run --profile demo_cached
-uv run streamlit run src/atlas/ui/app.py
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e '.[dev,dynamics]'
+atlas reconstruct --input data/23WN.cif --output-dir outputs/reconstruction
+python -m pytest -q
 ```
 
-In the UI, select **Load Atlas Challenge**, then **Start Campaign**. The completed
-run exposes the recommendation, candidates, recovered structural context,
-evidence ledger, Decision Trace, Scientific Notebook, benchmark results, methods,
-and limitations.
-
-Challenge and benchmark runs write immutable, non-overwriting artifacts under
-`runs/`. The challenge output includes a hash-chained event ledger, Decision
-Trace, Scientific Notebook, pre-reveal recommendation lock, and final report.
-
-## Verification
+For a full GPU run, clone the official model repositories at the recorded
+revisions and install their documented dependencies:
 
 ```bash
-uv run pytest
+mkdir -p .external
+git clone https://github.com/Kuhlman-Lab/ThermoMPNN.git .external/ThermoMPNN
+git -C .external/ThermoMPNN checkout 2b04fd370e399911b1fa5848112cc9013f084110
+git clone https://github.com/Kuhlman-Lab/ThermoMPNN-D.git .external/ThermoMPNN-D
+git -C .external/ThermoMPNN-D checkout df9a75aaddb674a7c4c193005031fc0536d325fb
+python -m pip install omegaconf wandb pytorch-lightning scipy scikit-learn joblib tqdm torchmetrics
+atlas run --input data/23WN.cif --output-root outputs --atlas-repo . --thermompnn-repo .external/ThermoMPNN --thermompnn-d-repo .external/ThermoMPNN-D --dynamics-mode minimize
 ```
 
-## What Atlas does not claim
+ThermoMPNN-D's pinned epistatic path currently requires CUDA. Missing repos,
+CUDA failures, malformed CSVs, and missing requested mutation rows stop the real
+pipeline with an actionable error; scientific fixtures exist only in tests.
 
-Atlas v1 does not claim to discover an Alzheimer’s cure, validate a therapeutic,
-predict clinical success, or experimentally improve DP622-S2. Its retrospective
-published controls cannot establish prospective generalization, and model
-training-data contamination cannot be excluded.
+## Colab
 
-This is a research-engineering project about scientific orchestration: typed
-state, provenance, hidden-label isolation, disagreement, negative results,
-immutable artifacts, reproducibility, and disciplined claim boundaries. Any
-physical candidate would still require sequence recovery, expression, blinded
-assays, selectivity testing, safety work, and independent experimental review.
+Open [`notebooks/Atlas_DP622_Colab.ipynb`](notebooks/Atlas_DP622_Colab.ipynb),
+select a standard T4 GPU runtime, and run cells in order. The visible
+`ATLAS_REF` defaults to `codex/atlas-v1-dynamic-geometry`. The notebook checks
+out that ref, verifies the resulting Atlas SHA and both fixed model commits,
+runs a fail-fast hardware/data/import preflight, and then invokes the production
+CLI in resumable stages. The mutable Colab kernel is orchestration-only: pinned
+`uv==0.8.13` creates a managed Python 3.10 environment, matching both upstream
+model environment files, and installs PyTorch 2.5.1 with CUDA 11.8. Preflight,
+readiness, Atlas, both model runners, geometry, OpenMM, validation, and ranking
+all use that one scientific executable. Google Drive is the default checkpoint
+location, so a runtime restart can resume the same provenance-bound run. Each
+predictor exits before the next stage starts, releasing its GPU allocations.
 
-The scientific contract, benchmark design, limitations, and exact reproduction
-steps are documented in [`docs/atlas-challenge.md`](docs/atlas-challenge.md),
-[`docs/research-questions.md`](docs/research-questions.md),
-[`docs/SCIENTIFIC_DECISIONS.md`](docs/SCIENTIFIC_DECISIONS.md),
-[`docs/limitations.md`](docs/limitations.md), and
-[`docs/reproducibility.md`](docs/reproducibility.md).
+Estimated first-run wall time on a standard Colab T4 is 20–60 minutes including
+installation, model inference, and default OpenMM minimization. This is an
+engineering estimate, not a measured Atlas benchmark. ThermoMPNN's genuine full
+single-mutant sweep is reused for post-gate candidate selection. Restrained 10 ps
+short MD (`--dynamics-mode short-md`) can add 10–60 minutes; the default
+minimization path is faster.
+
+## Outputs
+
+Each execution uses a run directory bound to the Atlas SHA, input SHA-256, model
+commits, dynamics mode, and validation policy. Before the gate, expect:
+
+- `DP622_active_like_reconstruction.pdb`
+- `residue_numbering_map.csv`
+- `known_mutants_manifest.csv` and `known_mutant_pdbs/`
+- `run_context.json` and self-contained `run_manifest.json`
+- `thermompnn_scores.csv`
+- `geometry_metrics.csv`
+- `openmm_dynamics_summary.csv` and `openmm_snapshot_metrics.csv`
+- `known_mutation_validation.csv` and `validation_report.md`
+- `pipeline_warnings.md`, `provenance.json`
+- `figures/validation_dashboard.png`
+- `figures/catalytic_geometry_boxplots.png`
+
+Only after a passing gate, expect:
+
+- `novel_candidates_manifest.csv` and `novel_candidate_pdbs/`
+- `novel_thermompnn_scores.csv` and `novel_geometry_metrics.csv`
+- `novel_candidates_ranked.csv`
+- `top_5_candidate_pdbs/`
+- `figures/candidate_ranking_summary.png`
+
+Lower predicted ΔΔG is interpreted only as a more favorable stability trend.
+Geometry columns are distances/RMSDs in Å. Null snapshot fields plus a warning
+mean OpenMM evidence was unavailable—not that the structure was stable.
+
+## Documentation
+
+- [`docs/scientific_decisions.md`](docs/scientific_decisions.md)
+- [`docs/limitations.md`](docs/limitations.md)
+- [`docs/reproduction.md`](docs/reproduction.md)
+- [`docs/superpowers/specs/2026-08-19-atlas-v1-dynamic-geometry-design.md`](docs/superpowers/specs/2026-08-19-atlas-v1-dynamic-geometry-design.md)
+
+Future scientific work could add validated metalloprotease parameterization,
+longer replicate MD, QM/MM treatment, optional secondary Rosetta refinement, a
+larger mutation library, and—most importantly—blinded wet-lab testing.

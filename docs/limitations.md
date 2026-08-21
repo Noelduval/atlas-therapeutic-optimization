@@ -1,37 +1,34 @@
-# Scientific Limitations
+# Limitations
 
-Atlas v1’s conclusions are limited to computational candidate prioritization in
-the DP622-S2 / Aβ42 / S2 Challenge and its retrospective supporting experiments.
+- The starting structure is the inactive DP622 E96Q deposited complex. Q120E is
+  an unrelaxed coordinate edit and not an experimentally determined active state.
+- Only Aβ residues 34–41 are resolved. Metrics cannot represent the flexibility
+  or contacts of full-length Aβ42.
+- Heavy-atom mutation construction removes side-chain atoms deterministically;
+  it does not repack side chains. Static mutant geometry is therefore a screening
+  baseline, not a relaxed structural prediction.
+- ThermoMPNN predicts stability change, not proteolytic rate, specificity,
+  expression, aggregation, toxicity, delivery, or clinical benefit.
+- The published controls are a very small retrospective benchmark. Passing them
+  does not demonstrate prospective generalization, and model training-data
+  overlap cannot be ruled out.
+- ThermoMPNN-D's pinned epistatic script uses CUDA. CPU-only environments cannot
+  complete the required double-mutant score.
+- The 23WN coordinates are fragments of larger chains and are not chemically
+  terminated molecules. Atlas uses OpenMM's documented fragment matching mode
+  (`ignoreExternalBonds=True`) and adds hydrogens without inventing heavy atoms,
+  caps, residues, or sequence. This permitted a local restrained minimization,
+  but it remains an approximation to unresolved external bonding and zinc/
+  substrate parameterization. Any future setup failure remains explicit and
+  does not count as favorable dynamics evidence.
+- Position and zinc restraints make comparisons more interpretable but can hide
+  larger conformational changes. Ten-picosecond dynamics is not converged MD.
+- The composite ranking is an explicit heuristic rather than a learned catalytic
+  model. Lower scores mean higher computational priority only.
+- Novel outputs require expression, blinded kinetic assays, cleavage-site and
+  selectivity characterization, and independent experimental review.
 
-- `demo_cached` evidence is deterministic and synthetic. It verifies the
-  orchestration contract; it is not measured biology or a substitute for a
-  production sequence, structure, docking, simulation, or assay pipeline.
-- Geometry inferred from the inactive DP622 E96Q structure is not evidence of
-  catalytic activity.
-- The workflow does not predict, infer, or fabricate kinetic constants.
-- Published controls can benchmark retrospective alignment but cannot establish
-  prospective generalization. Foundation-model training-data contamination is
-  possible and must be disclosed.
-- The VITA Supplementary Information, PDB 23WN coordinates, and EMD-69322
-  metadata are now available with checksums. The large EMDB density map was not
-  downloaded because the current implementation does not consume it.
-- Exact active DP622-S2, OP609-S2, and OP669-S2 enzyme sequences remain
-  unavailable after searching the official article, supplement, structural
-  deposits, and authors' repository. Atlas therefore cannot reconstruct or
-  directly model the published active/optimized constructs.
-- The 23WN entity-1 sequence is the inactive E96Q fusion construct, not active
-  DP622-S2. Back-mutating E96Q would be an unsupported sequence inference.
-- The recovered experimental labels are aggregate figure/reported values, not
-  raw assay observations. They support post-lock retrospective comparison only.
-- Raw assay-level measurements and named optimized-variant coordinate/design
-  files are explicitly `UNAVAILABLE` in the asset registry.
-- Full EMD-69322 map voxels are publicly hosted but `UNAVAILABLE` locally; they
-  were intentionally not downloaded because Atlas v1 does not consume them.
-- Candidate ranking does not establish cleavage, selectivity, safety,
-  developability, efficacy, or clinical benefit. Experimental validation remains
-  necessary.
-- Atlas v1 does not demonstrate general modality selection, causal Alzheimer’s
-  disease modeling, or clinical outcome prediction.
-
-A `scientifically_complete` seed-retention result means the available evidence
-did not justify promotion; it is not a claim that DP622-S2 is clinically optimal.
+Reasonable future work includes a validated metal-center force field, terminal
+completion reviewed by a structural biologist, replicate longer MD, QM/MM,
+prospective mutation controls, optional orthogonal Rosetta refinement, and wet-
+lab testing.

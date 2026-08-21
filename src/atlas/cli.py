@@ -1,67 +1,169 @@
 """Atlas v1 command-line interface."""
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Annotated
 
+import pandas as pd
 import typer
-from rich.console import Console
 
-from atlas.artifacts import (
-    next_run_dir,
-    write_benchmark_artifacts,
-    write_campaign_artifacts,
+from atlas.pipeline import PipelineConfig, run_pipeline
+from atlas.preflight import run_preflight as run_environment_preflight
+from atlas.structure.reconstruct import reconstruct_active_like
+from atlas.validation.validation_gate import (
+    evaluate_validation,
+    require_validation_pass,
+    write_validation_outputs,
 )
-from atlas.benchmark import run_benchmark
-from atlas.domain.models import CampaignConfig
-from atlas.profiles import PROFILES
-from atlas.workflow.graph import run_campaign
 
 
-app = typer.Typer(no_args_is_help=True, help="Atlas v1 scientific optimization artifact.")
-challenge_app = typer.Typer(no_args_is_help=True, help="Run the single Atlas Challenge.")
-benchmark_app = typer.Typer(no_args_is_help=True, help="Run the VITA benchmark program.")
-app.add_typer(challenge_app, name="challenge")
-app.add_typer(benchmark_app, name="benchmark")
-console = Console()
+app = typer.Typer(
+    no_args_is_help=True,
+    help="Validation-gated stability and catalytic-geometry screening for DP622.",
+)
 
 
-def _validate_profile(profile: str) -> None:
-    if profile not in PROFILES:
-        raise typer.BadParameter(
-            f"Unknown profile '{profile}'. Available profiles: {', '.join(PROFILES)}"
+@app.command()
+def preflight(
+    input_path: Annotated[
+        Path, typer.Option("--input", help="Committed 23WN mmCIF input.")
+    ] = Path("data/23WN.cif"),
+    atlas_repo: Annotated[
+        Path, typer.Option(help="Atlas Git checkout to verify.")
+    ] = Path("."),
+    thermompnn_repo: Annotated[
+        Path, typer.Option(help="Pinned official ThermoMPNN repository.")
+    ] = Path(".external/ThermoMPNN"),
+    thermompnn_d_repo: Annotated[
+        Path, typer.Option(help="Pinned official ThermoMPNN-D repository.")
+    ] = Path(".external/ThermoMPNN-D"),
+    output_json: Annotated[
+        Path, typer.Option(help="Machine-readable preflight report.")
+    ] = Path("outputs/preflight.json"),
+) -> None:
+    """Fail fast on GPU, CUDA, checkout, import, or 23WN setup errors."""
+    try:
+        report = run_environment_preflight(
+            input_path,
+            atlas_repo,
+            thermompnn_repo,
+            thermompnn_d_repo,
         )
+        report.write_json(output_json)
+    except Exception as exc:
+        typer.echo(f"Preflight failed: {type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(f"Preflight passed on {report.gpu_name}")
+    typer.echo(f"Free GPU memory: {report.gpu_memory_free_mib} MiB")
+    typer.echo(f"Atlas commit: {report.atlas_commit}")
+    typer.echo(f"ThermoMPNN commit: {report.thermompnn_commit}")
+    typer.echo(f"ThermoMPNN-D commit: {report.thermompnn_d_commit}")
+    typer.echo(f"Report: {output_json}")
 
 
-@challenge_app.command("run")
-def challenge_run(
-    profile: Annotated[str, typer.Option(help="Runtime adapter profile.")] = "demo_cached",
-    output_root: Annotated[
-        Path, typer.Option(help="Parent directory for non-overwriting run artifacts.")
-    ] = Path("runs"),
+@app.command()
+def reconstruct(
+    input_path: Annotated[
+        Path, typer.Option("--input", help="Committed 23WN mmCIF/PDB input.")
+    ] = Path("data/23WN.cif"),
+    output_dir: Annotated[
+        Path, typer.Option(help="Directory for structural-only outputs.")
+    ] = Path("outputs/reconstruction"),
 ) -> None:
-    """Run the DP622-S2 / Aβ42 / S2 blinded retrospective challenge."""
-    _validate_profile(profile)
-    run_dir = next_run_dir(output_root, f"challenge-{profile}")
-    run = run_campaign(CampaignConfig(profile=profile), run_dir, profile=profile)
-    write_campaign_artifacts(run, run_dir)
-    console.print(f"Run directory: {run_dir}")
-    console.print(f"Status: {run.final_report.status.value}")
-    console.print(f"Winning candidate: {run.final_report.winning_candidate}")
+    """Build the active-like DP622–Aβ reconstruction without model dependencies."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    result = reconstruct_active_like(
+        input_path,
+        output_dir / "DP622_active_like_reconstruction.pdb",
+        output_dir / "residue_numbering_map.csv",
+    )
+    typer.echo(f"Active-like reconstruction: {result.structure_path}")
+    typer.echo(f"Residue map: {result.numbering_map_path}")
 
 
-@benchmark_app.command("run")
-def benchmark_run(
-    profile: Annotated[str, typer.Option(help="Runtime adapter profile.")] = "demo_cached",
-    output_root: Annotated[
-        Path, typer.Option(help="Parent directory for non-overwriting benchmark artifacts.")
-    ] = Path("runs"),
+@app.command()
+def validate(
+    stability_csv: Annotated[Path, typer.Option(help="Normalized stability CSV.")],
+    geometry_csv: Annotated[Path, typer.Option(help="Catalytic geometry CSV.")],
+    output_dir: Annotated[
+        Path, typer.Option(help="Directory for gate CSV and Markdown report.")
+    ] = Path("outputs/validation"),
+    dynamics_csv: Annotated[
+        Path | None, typer.Option(help="Optional OpenMM summary CSV.")
+    ] = None,
 ) -> None:
-    """Run supporting experiments inside the single VITA benchmark family."""
-    _validate_profile(profile)
-    run_dir = next_run_dir(output_root, f"benchmark-{profile}")
-    result = run_benchmark(profile, run_dir)
-    write_benchmark_artifacts(result, run_dir)
-    console.print(f"Run directory: {run_dir}")
-    console.print(f"Benchmark family: {result.benchmark_family}")
-    console.print(f"Status: {result.status}")
-    console.print(f"Flagship winner: {result.flagship_winner}")
+    """Evaluate precomputed real scientific outputs through the hard gate."""
+    stability = pd.read_csv(stability_csv)
+    geometry = pd.read_csv(geometry_csv)
+    dynamics = pd.read_csv(dynamics_csv) if dynamics_csv else None
+    result = evaluate_validation(stability, geometry, dynamics)
+    write_validation_outputs(result, output_dir)
+    try:
+        require_validation_pass(result)
+    except Exception as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(3) from exc
+    typer.echo(f"Validation passed: {output_dir / 'validation_report.md'}")
+
+
+@app.command()
+def run(
+    input_path: Annotated[
+        Path, typer.Option("--input", help="Committed 23WN mmCIF/PDB input.")
+    ] = Path("data/23WN.cif"),
+    output_root: Annotated[
+        Path, typer.Option(help="Parent for fresh, non-overwriting run directories.")
+    ] = Path("outputs"),
+    atlas_repo: Annotated[
+        Path, typer.Option(help="Atlas Git checkout used for commit provenance.")
+    ] = Path("."),
+    thermompnn_repo: Annotated[
+        Path, typer.Option(help="Pinned official ThermoMPNN repository.")
+    ] = Path(".external/ThermoMPNN"),
+    thermompnn_d_repo: Annotated[
+        Path, typer.Option(help="Pinned official ThermoMPNN-D repository.")
+    ] = Path(".external/ThermoMPNN-D"),
+    dynamics_mode: Annotated[
+        str,
+        typer.Option(help="OpenMM stage: minimize, short-md, or skip."),
+    ] = "minimize",
+    run_id: Annotated[
+        str | None,
+        typer.Option(help="Stable run identifier required for resumable Colab stages."),
+    ] = None,
+    resume: Annotated[
+        bool,
+        typer.Option(help="Reuse only provenance-matched completed stage outputs."),
+    ] = False,
+    stop_after: Annotated[
+        str | None,
+        typer.Option(
+            help="Stop after structure, thermompnn, thermompnn-d, geometry, dynamics, or validation."
+        ),
+    ] = None,
+) -> None:
+    """Run reconstruction, benchmarks, hard validation, then conditional design."""
+    try:
+        result = run_pipeline(
+            PipelineConfig(
+                input_structure=input_path,
+                output_root=output_root,
+                atlas_repo=atlas_repo,
+                thermompnn_repo=thermompnn_repo,
+                thermompnn_d_repo=thermompnn_d_repo,
+                dynamics_mode=dynamics_mode,
+                run_id=run_id,
+                resume=resume,
+                stop_after=stop_after,
+            )
+        )
+    except Exception as exc:
+        typer.echo(f"Atlas stopped: {type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(f"Atlas status: {result.status}")
+    typer.echo(f"Run directory: {result.run_dir}")
+    if result.status == "completed":
+        typer.echo(
+            "Novel candidates are computational predictions requiring experimental validation."
+        )
